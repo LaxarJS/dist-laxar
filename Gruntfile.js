@@ -26,6 +26,7 @@ module.exports = function (grunt) {
          location: pkg.name,
          main: pkg.name
       } ],
+      exclude: [ 'text', 'json' ],
       paths: {
          text: 'requirejs-plugins/lib/text',
          json: 'requirejs-plugins/src/json',
@@ -51,18 +52,10 @@ module.exports = function (grunt) {
    };
 
    // internal dependencies:
-   var internalsPaths = options( {
+   var fullPaths = options( {
       jjv: 'jjv/lib/jjv',
       jjve: 'jjve/jjve'
    }, base.paths );
-
-   // internal+widget dependencies:
-   var fullPaths = options( {
-      angular: 'angular/angular',
-      'angular-mocks': 'angular-mocks/angular-mocks',
-      'angular-route': 'angular-route/angular-route',
-      'angular-sanitize': 'angular-sanitize/angular-sanitize'
-   }, internalsPaths );
 
    // widget testing dependencies:
    var testingPaths = options( {
@@ -70,36 +63,6 @@ module.exports = function (grunt) {
       jasmine: 'jasmine/lib/jasmine-core/jasmine',
       q_mock: 'q_mock/q'
    }, fullPaths );
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   var fullShims = {
-      angular: {
-         deps: [],
-         exports: 'angular'
-      },
-      'angular-mocks': {
-         deps: [ 'angular' ],
-         init: function( angular ) {
-            'use strict';
-            return angular.mock;
-         }
-      },
-      'angular-route': {
-         deps: [ 'angular' ],
-         init: function ( angular ) {
-            'use strict';
-            return angular;
-         }
-      },
-      'angular-sanitize': {
-         deps: [ 'angular' ],
-         init: function ( angular ) {
-            'use strict';
-            return angular;
-         }
-      }
-   };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -119,7 +82,6 @@ module.exports = function (grunt) {
          'with-deps': {
             options: {
                paths: fullPaths,
-               shim: fullShims,
                out: base.out + '.with-deps.js'
             }
          },
@@ -130,7 +92,6 @@ module.exports = function (grunt) {
                name: base.name + '/laxar_testing',
                paths: testingPaths,
                deps: [ 'jquery' ],
-               shim: fullShims,
                out: base.out + '_testing.js'
             }
          }
