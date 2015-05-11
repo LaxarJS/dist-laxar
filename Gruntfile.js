@@ -15,6 +15,9 @@ module.exports = function (grunt) {
 
    // mark dependencies that will be satisfied by other bundles
    var DEFER = 'empty:';
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    var base = {
       baseUrl: 'bower_components',
       name: pkg.name,
@@ -48,7 +51,7 @@ module.exports = function (grunt) {
    };
 
    // internal dependencies:
-   var internalsPaths =  options( {
+   var internalsPaths = options( {
       jjv: 'jjv/lib/jjv',
       jjve: 'jjve/jjve'
    }, base.paths );
@@ -70,6 +73,36 @@ module.exports = function (grunt) {
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   var fullShims = {
+      angular: {
+         deps: [],
+         exports: 'angular'
+      },
+      'angular-mocks': {
+         deps: [ 'angular' ],
+         init: function( angular ) {
+            'use strict';
+            return angular.mock;
+         }
+      },
+      'angular-route': {
+         deps: [ 'angular' ],
+         init: function ( angular ) {
+            'use strict';
+            return angular;
+         }
+      },
+      'angular-sanitize': {
+         deps: [ 'angular' ],
+         init: function ( angular ) {
+            'use strict';
+            return angular;
+         }
+      }
+   };
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    grunt.initConfig( {
       requirejs: {
          options: base,
@@ -86,6 +119,7 @@ module.exports = function (grunt) {
          'with-deps': {
             options: {
                paths: fullPaths,
+               shim: fullShims,
                out: base.out + '.with-deps.js'
             }
          },
@@ -96,11 +130,13 @@ module.exports = function (grunt) {
                name: base.name + '/laxar_testing',
                paths: testingPaths,
                deps: [ 'jquery' ],
+               shim: fullShims,
                out: base.out + '_testing.js'
             }
          }
       },
 
+      // For the non-testing bundles, create minified versions as well:
       uglify: {
          options: {
             sourceMap: true,

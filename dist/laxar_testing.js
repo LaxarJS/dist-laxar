@@ -36659,7 +36659,12 @@ var minlengthDirective = function() {
 })(window, document);
 
 !window.angular.$$csp() && window.angular.element(document).find('head').prepend('<style type="text/css">@charset "UTF-8";[ng\\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak,.ng-hide:not(.ng-hide-animate){display:none !important;}ng\\:form{display:block;}</style>');
-define("angular", function(){});
+define("angular", (function (global) {
+    return function () {
+        var ret, fn;
+        return ret || global.angular;
+    };
+}(this)));
 
 /**
  * Copyright 2014 aixigo AG
@@ -39545,7 +39550,17 @@ angular.module('ngSanitize').filter('linky', ['$sanitize', function($sanitize) {
 
 })(window, window.angular);
 
-define("angular-sanitize", function(){});
+define("angular-sanitize", ["angular"], (function (global) {
+    return function () {
+        var ret, fn;
+       fn = function ( angular ) {
+            
+            return angular;
+         };
+        ret = fn.apply(global, arguments);
+        return ret;
+    };
+}(this)));
 
 /**
  * Copyright 2014 aixigo AG
@@ -42284,7 +42299,17 @@ function ngViewFillContentFactory($compile, $controller, $route) {
 
 })(window, window.angular);
 
-define("angular-route", function(){});
+define("angular-route", ["angular"], (function (global) {
+    return function () {
+        var ret, fn;
+       fn = function ( angular ) {
+            
+            return angular;
+         };
+        ret = fn.apply(global, arguments);
+        return ret;
+    };
+}(this)));
 
 /* jshint proto: true */
 
@@ -52302,7 +52327,17 @@ if (window.jasmine || window.mocha) {
 
 })(window, window.angular);
 
-define("angular-mocks", function(){});
+define("angular-mocks", ["angular"], (function (global) {
+    return function () {
+        var ret, fn;
+       fn = function ( angular ) {
+            
+            return angular.mock;
+         };
+        ret = fn.apply(global, arguments);
+        return ret;
+    };
+}(this)));
 
 /**
  * Copyright 2014 aixigo AG
