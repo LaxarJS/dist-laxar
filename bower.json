@@ -2,15 +2,14 @@
    "name": "laxar",
    "version": "1.0.0-alpha.10",
    "description": "Building large applications is hard, so don't do that!",
+   "main": "dist/laxar.js",
    "authors": [],
    "license": "MIT",
-   "main": "laxar.js",
    "ignore": [
       ".*",
       "Gruntfile.js",
       "node_modules",
-      "bower_components",
-      "docs"
+      "bower_components"
    ],
    "dependencies": {
       "requirejs": "jrburke/requirejs#2.1.x",
