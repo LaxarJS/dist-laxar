@@ -12,6 +12,10 @@
       "bower_components",
       "docs"
    ],
+   "dependencies": {
+      "requirejs": "jrburke/requirejs#2.1.x",
+      "requirejs-plugins": "millermedeiros/requirejs-plugins#1.0.x"
+   },
    "devDependencies": {
       "laxar": "LaxarJS/laxar#^1.0.0-alpha.10"
    }
