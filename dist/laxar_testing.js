@@ -11776,6 +11776,7 @@ define( 'laxar/lib/testing/run_spec',[
                   results.push( ref + '/' + controlJson.name );
                }, function() {
                   results.push( ref );
+                  return $.when();
                } );
             } );
          }, $.when() ).then( function() {
