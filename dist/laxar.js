@@ -2143,7 +2143,7 @@ define( 'laxar/lib/loaders/paths',[
       WIDGETS: require.toUrl( 'laxar-path-widgets' ),
       PAGES: require.toUrl( 'laxar-path-pages' ),
       FLOW_JSON: require.toUrl( 'laxar-path-flow' ),
-      DEFAULT_THEME: require.toUrl( 'laxar_uikit/themes/default.theme' )
+      DEFAULT_THEME: require.toUrl( 'laxar-path-default-theme' )
    };
 
 } );
