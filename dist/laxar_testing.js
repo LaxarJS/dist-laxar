@@ -93,23 +93,33 @@ define( 'laxar/lib/logging/console_channel',[], function() {
    return consoleLogger;
 
 } );
+
 /**
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * The *assert* module provides some simple assertion methods for type checks, truthyness tests and guards
+ * invalid code paths.
+ *
+ * When requiring `laxar`, it is available as `laxar.assert`.
+ *
+ * @module assert
+ */
 define( 'laxar/lib/utilities/assert',[], function() {
    'use strict';
 
    /**
-    * Constructor for Assert.
+    * Constructor for an Assertion.
     *
     * @param {*} subject
     *    the object assertions are made for
     * @param {String} [optionalDetails]
-    *    details that should be printed whenever no details are given for an assertion method
+    *    details that should be printed in case no specific details are given for an assertion method
     *
     * @constructor
+    * @private
     */
    function Assertion( subject, optionalDetails ) {
       this.subject_ = subject;
@@ -222,22 +232,33 @@ define( 'laxar/lib/utilities/assert',[], function() {
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   // Matching whitespaces at the beginning is necessary for Internet Explorer ...
-   var FUNCTION_NAME_MATCHER = /^[\s]*function ([^\(]*)\(/i;
+   var FUNCTION_NAME_MATCHER = /^function ([^\(]*)\(/i;
    function functionName( func ) {
-      var match = FUNCTION_NAME_MATCHER.exec( func.toString() );
-      return match[1].length ? match[1] : 'anonymous';
+      var match = FUNCTION_NAME_MATCHER.exec( func.toString().trim() );
+      return match[1].length ? match[1] : 'n/a';
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Creates and returns a mew `Assertion` instance for the given `subject`.
+    * Creates and returns a new `Assertion` instance for the given `subject`.
+    *
+    * **Note**: this function is no member of the module, but the module itself. Thus when using `assert` via
+    * laxar, `assert` is will be no simple object, but this function having the other functions as
+    * properties.
+    *
+    * Example:
+    * ```js
+    * define( [ 'laxar' ], function( ax ) {
+    *    ax.assert( ax.assert ).hasType( Function );
+    *    ax.assert.state( typeof ax.assert.codeIsUnreachable === 'function' );
+    * } );
+    * ```
     *
     * @param {*} subject
     *    the object assertions are made for
     * @param {String} [optionalDetails]
-    *    details that should be printed whenever no details are given for an assertion method
+    *    details that should be printed in case no specific details are given when calling an assertion method
     *
     * @return {Assertion}
     *    the assertion instance
@@ -249,7 +270,7 @@ define( 'laxar/lib/utilities/assert',[], function() {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Marks a code path as erroneous if reached by throwing an error.
+    * Marks a code path as erroneous by throwing an error when reached.
     *
     * @param {String} [optionalDetails]
     *    details to append to the error message
@@ -285,7 +306,14 @@ define( 'laxar/lib/utilities/assert',[], function() {
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
-define( 'laxar/lib/utilities/object',[], function( undefined ) {
+/**
+ * Utilities for dealing with objects.
+ *
+ * When requiring `laxar`, it is available as `laxar.object`.
+ *
+ * @module object
+ */
+define( 'laxar/lib/utilities/object',[], function() {
    'use strict';
 
    var slice = Array.prototype.slice;
@@ -304,7 +332,7 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
     *
     * @type {Function}
     */
-   function extend( target, sources /*, source2, ...*/ ) {
+   function extend( target, sources ) {
       return applyForAll( slice.call( arguments, 0 ), function( target, source, key ) {
          target[ key ] = source[ key ];
       } );
@@ -313,12 +341,12 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Returns all properties from `options` with missing properties completed from `defaults`. If `options`
-    * is `null` or `undefined`, an empty object is automatically created. `options` and `defaults` are not
-    * modified.
+    * Returns all properties from `obj` with missing properties completed from `defaults`. If `obj` is `null`
+    * or `undefined`, an empty object is automatically created. `obj` and `defaults` are not modified by this
+    * function. This is very useful for optional map arguments, resembling some kind of configuration.
     *
     * Example:
-    * ```javascript
+    * ```js
     * object.options( { validate: true }, {
     *    validate: false,
     *    highlight: true
@@ -330,7 +358,7 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
     * // }
     * ```
     *
-    * @param {Object} theOptions
+    * @param {Object} obj
     *    the options object to use as source, may be `null` or `undefined`
     * @param {Object} defaults
     *    the defaults to take missing properties from
@@ -338,8 +366,8 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
     * @return {Object}
     *    the completed options object
     */
-   function options( theOptions, defaults) {
-      return extend( {}, defaults, theOptions );
+   function options( obj, defaults ) {
+      return extend( {}, defaults, obj );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -374,6 +402,14 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
     * Finds a property in a nested object structure by a given path. A path is a string of keys, separated
     * by a dot from each other, used to traverse that object and find the value of interest. An additional
     * default is returned, if otherwise the value would yield `undefined`.
+    *
+    * Example.
+    * ```js
+    * object.path( { one: { two: 3 } }, 'one.two' ); // => 3
+    * object.path( { one: { two: 3 } }, 'one.three' ); // => undefined
+    * object.path( { one: { two: 3 } }, 'one.three', 42 ); // => 42
+    *
+    * ```
     *
     * @param {Object} obj
     *    the object to traverse
@@ -411,6 +447,12 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
     * Sets a property in a nested object structure at a given path to a given value. A path is a string of
     * keys, separated by a dot from each other, used to traverse that object and find the place where the
     * value should be set. Any missing subtrees along the path are created.
+    *
+    * Example:
+    * ```js
+    * object.setPath( {}, 'name.first', 'Peter' ); // => { name: { first: 'Peter' } }
+    * object.setPath( {}, 'pets.1', 'Hamster' ); // => { pets: [ null, 'Hamster' ] }
+    * ```
     *
     * @param {Object} obj
     *    the object to modify
@@ -454,8 +496,8 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Returns a deep clone of the given object. Note that the current implementation is intended to be
-    * used for simple object literals only. There is no guarantee that cloning objects instantiated via
+    * Returns a deep clone of the given object. Note that the current implementation is intended to be used
+    * for simple object literals only. There is no guarantee that cloning objects instantiated via
     * constructor function works and cyclic references will lead to endless recursion.
     *
     * @param {*} object
@@ -586,14 +628,31 @@ define( 'laxar/lib/utilities/object',[], function( undefined ) {
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
-/*jshint evil:true*/
+/**
+ * The *configuration* module provides convenient readonly access to all values configured for this application
+ * under `window.laxar`. Most probably this configuration takes place in the JavaScript file
+ * `application/application.js` under your project's root directory.
+ *
+ * When requiring `laxar`, it is available as `laxar.configuration`.
+ *
+ * @module configuration
+ */
 define( 'laxar/lib/utilities/configuration',[
-   '../utilities/object'
+   './object'
 ], function( object ) {
    'use strict';
 
-   // Obtain global object in strict mode: http://stackoverflow.com/questions/3277182/
+   /*jshint evil:true*/
+   /**
+    * Obtain global object in strict mode: http://stackoverflow.com/questions/3277182/
+    *
+    * private tag needed for api doc generation. Otherwise the module description becomes messed up.
+    *
+    * @private
+    */
    var global = new Function( 'return this' )();
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    return {
 
@@ -601,13 +660,22 @@ define( 'laxar/lib/utilities/configuration',[
        * Returns the configured value for the specified attribute path or `undefined` in case it wasn't
        * configured. If a default value was passed as second argument this is returned instead of `undefined`.
        *
+       * Examples:
+       * ```js
+       * define( [ 'laxar' ], function( ax ) {
+       *    ax.configuration.get( 'logging.threshold' ); // -> 'INFO'
+       *    ax.configuration.get( 'iDontExist' ); // -> undefined
+       *    ax.configuration.get( 'iDontExist', 42 ); // -> 42
+       * } );
+       * ```
+       *
        * @param {String} key
        *    a  path (using `.` as separator) to the property in the configuration object
        * @param {*} [optionalDefault]
        *    the value to return if no value was set for `key`
        *
        * @return {*}
-       *    either the configured value or `optionalDefault`
+       *    either the configured value, `undefined` or `optionalDefault`
        */
       get: function( key, optionalDefault ) {
          return object.path( global.laxar, key, optionalDefault );
@@ -622,6 +690,16 @@ define( 'laxar/lib/utilities/configuration',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * An interface for logging purposes. At least for permanent logging this should always be used in favor of
+ * `console.log` and friends, as it is cross browser secure and allows attaching multiple channels where
+ * messages can be routed to (i.e. to send them to a server process for persistence). If available, messages
+ * will be logged to the browser's console using a builtin console channel.
+ *
+ * When requiring `laxar`, an instance of the `Logger` type is available as `laxar.log`.
+ *
+ * @module log
+ */
 define( 'laxar/lib/logging/log',[
    './console_channel',
    '../utilities/assert',
@@ -630,8 +708,18 @@ define( 'laxar/lib/logging/log',[
 ], function( consoleChannel, assert, object, configuration ) {
    'use strict';
 
-
    var slice = Array.prototype.slice;
+   /**
+    * By default available log levels, sorted by increasing log level:
+    * - TRACE (level 100)
+    * - DEBUG (level 200)
+    * - INFO (level 300)
+    * - WARN (level 400)
+    * - ERROR (level 500)
+    * - FATAL (level 600)
+    *
+    * @type {Object}
+    */
    var level = {
       TRACE: 100,
       DEBUG: 200,
@@ -647,6 +735,7 @@ define( 'laxar/lib/logging/log',[
     * Constructor for a logger.
     *
     * @constructor
+    * @private
     */
    function Logger() {
       this.queueSize_ = 100;
@@ -675,10 +764,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Creates and returns a new logger instance.
-    * Intended for testing purposes.
+    * Creates and returns a new logger instance. Intended for testing purposes only.
     *
     * @return {Logger}
+    *    a new logger instance
     */
    Logger.prototype.create = function() {
       return new Logger();
@@ -689,7 +778,10 @@ define( 'laxar/lib/logging/log',[
    /**
     * Logs a message. A message may contain placeholders in the form `[#]` where `#` resembles the index
     * within the list of `replacements`. `replacements` are incrementally counted starting at `0`. If the
-    * log level is below the configured log level the message simply is discarded.
+    * log level is below the configured log threshold, the message is simply discarded.
+    *
+    * It is recommended not to use this method directly, but instead one of the short cut methods for the
+    * according log level.
     *
     * @param {Number} level
     *    the level for this message
@@ -725,7 +817,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Logs a message in log level `TRACE`. See {@link #log} for further information.
+    * Logs a message in log level `TRACE`. See {@link Logger#log} for further information.
+    *
+    * *Important note*: This method is only available, if no custom log levels were defined via
+    * configuration or custom log levels include this method as well.
     *
     * @param {String} message
     *    the message to log
@@ -737,7 +832,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Logs a message in log level `DEBUG`. See {@link #log} for further information.
+    * Logs a message in log level `DEBUG`. See {@link Logger#log} for further information.
+    *
+    * *Important note*: This method is only available, if no custom log levels were defined via
+    * configuration or custom log levels include this method as well.
     *
     * @param {String} message
     *    the message to log
@@ -749,7 +847,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Logs a message in log level `INFO`. See {@link #log} for further information.
+    * Logs a message in log level `INFO`. See {@link Logger#log} for further information.
+    *
+    * *Important note*: This method is only available, if no custom log levels were defined via
+    * configuration or custom log levels include this method as well.
     *
     * @param {String} message
     *    the message to log
@@ -761,7 +862,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Logs a message in log level `WARN`. See {@link #log} for further information.
+    * Logs a message in log level `WARN`. See {@link Logger#log} for further information.
+    *
+    * *Important note*: This method is only available, if no custom log levels were defined via
+    * configuration or custom log levels include this method as well.
     *
     * @param {String} message
     *    the message to log
@@ -773,7 +877,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Logs a message in log level `ERROR`. See {@link #log} for further information.
+    * Logs a message in log level `ERROR`. See {@link Logger#log} for further information.
+    *
+    * *Important note*: This method is only available, if no custom log levels were defined via
+    * configuration or custom log levels include this method as well.
     *
     * @param {String} message
     *    the message to log
@@ -785,7 +892,10 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Logs a message in log level `FATAL`. See {@link #log} for further information.
+    * Logs a message in log level `FATAL`. See {@link Logger#log} for further information.
+    *
+    * *Important note*: This method is only available, if no custom log levels were defined via
+    * configuration or custom log levels include this method as well.
     *
     * @param {String} message
     *    the message to log
@@ -798,14 +908,17 @@ define( 'laxar/lib/logging/log',[
 
    /**
     * Adds a new channel to forward log messages to. A channel is called synchronously for every log message
-    * and is responsible to trigger something asynchronously itself if necessary. Each message is an object
-    * having the following properties:
-    * - `id`: a unique, incremented id of the log message
+    * and can do whatever necessary to handle the message according to its task. Note that blocking or
+    * performance critical actions within a channel should always take place asynchronously to prevent from
+    * blocking the application. Ideally a web worker is used for heavier background tasks.
+    *
+    * Each message is an object having the following properties:
+    * - `id`: the unique, ascending id of the log message
     * - `level`: the log level of the message in string representation
     * - `text`: the actual message that was logged
     * - `replacements`: the raw list of replacements passed along the message
     * - `time`: JavaScript Date instance when the message was logged
-    * - `tags`: A map of all log tags currently set on the logger's scope
+    * - `tags`: A map of all log tags currently set for the logger
     * - `sourceInfo`: if supported, a map containing `file`, `line` and `char` where the logging took place
     *
     * @param {Function} channel
@@ -840,6 +953,11 @@ define( 'laxar/lib/logging/log',[
     * `;` as separator. Note that no formatting of the value takes place and a non-string value will just have
     * its appropriate `toString` method called.
     *
+    * Log tags can be used to mark a set of log messages with a value giving further information on the
+    * current logging context. For example laxar sets a tag `'INST'` with a unique-like identifier for the
+    * current browser client. If then for example log messages are persisted on a server, messages belonging
+    * to the same client can be accumulated.
+    *
     * @param {String} tag
     *    the id of the tag to add a value for
     * @param {String} value
@@ -861,7 +979,7 @@ define( 'laxar/lib/logging/log',[
    /**
     * Sets a value for a log tag. If a tag is already known, the value is overwritten by the given one. Note
     * that no formatting of the value takes place and a non-string value will just have its appropriate
-    * `toString` method called.
+    * `toString` method called. For further information on log tags, see {@link Logger#addTag}.
     *
     * @param {String} tag
     *    the id of the tag to set a value for
@@ -877,9 +995,7 @@ define( 'laxar/lib/logging/log',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Sets a value for a log tag. If a tag is already known, the value is overwritten by the given one. Note
-    * that no formatting of the value takes place and a non-string value will just have its appropriate
-    * `toString` method called.
+    * Removes a log tag. For further information on log tags, see {@link Logger#addTag}.
     *
     * @param {String} tag
     *    the id of the tag to set a value for
@@ -894,7 +1010,7 @@ define( 'laxar/lib/logging/log',[
 
    /**
     * Returns a map of all tags. If there are multiple values for the same tag, their values are concatenated
-    * using a `;` as separator.
+    * using a `;` as separator. For further information on log tags, see {@link Logger#addTag}.
     *
     * @return {Object}
     *    a mapping from tag to its value(s)
@@ -988,6 +1104,11 @@ define( 'laxar/lib/logging/log',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * A module for the `axId` and `axFor` directives.
+ *
+ * @module axId
+ */
 define( 'laxar/lib/directives/id/id',[
    'angular',
    '../../utilities/assert'
@@ -999,6 +1120,22 @@ define( 'laxar/lib/directives/id/id',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var ID_DIRECTIVE_NAME = 'axId';
+   /**
+    * This directive should be used within a widget whenever a unique id for a DOM element should be created.
+    * It's value is evaluated as AngularJS expression and used as a local identifier to generate a distinct,
+    * unique document wide id.
+    *
+    * A common use case is in combination with {@link axFor} for input fields having a label.
+    *
+    * Example:
+    * ```html
+    * <label ax-for="'userName'">Please enter your name:</label>
+    * <input ax-id="'userName'" type="text" ng-model="username">
+    * ```
+    *
+    * @name axId
+    * @directive
+    */
    module.directive( ID_DIRECTIVE_NAME, [ function() {
       return {
          restrict: 'A',
@@ -1015,6 +1152,19 @@ define( 'laxar/lib/directives/id/id',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var FOR_DIRECTIVE_NAME = 'axFor';
+   /**
+    * This directive should be used within a widget whenever an id, generated using the {@link axId} directive,
+    * should be referenced at a `label` element.
+    *
+    * Example:
+    * ```html
+    * <label ax-for="'userName'">Please enter your name:</label>
+    * <input ax-id="'userName'" type="text" ng-model="username">
+    * ```
+    *
+    * @name axFor
+    * @directive
+    */
    module.directive( FOR_DIRECTIVE_NAME, [ function() {
       return {
          restrict: 'A',
@@ -1039,6 +1189,11 @@ define( 'laxar/lib/directives/id/id',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * A module for the `axLayout` directive.
+ *
+ * @module axLayout
+ */
 define( 'laxar/lib/directives/layout/layout',[
    'angular',
    '../../logging/log'
@@ -1051,6 +1206,14 @@ define( 'laxar/lib/directives/layout/layout',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * This directive uses the *axLayoutLoader* service to load a given layout and compile it as child to the
+    * element the directive is set on. In contrast to *ngInclude* it doesn't watch the provided expression for
+    * performance reasons and takes LaxarJS theming into account when loading the assets.
+    *
+    * @name axLayout
+    * @directive
+    */
    module.directive( DIRECTIVE_NAME, [ 'axLayoutLoader', '$compile', function( layoutLoader, $compile ) {
 
       return {
@@ -1081,6 +1244,13 @@ define( 'laxar/lib/directives/layout/layout',[
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
+ */
+/**
+ * Utilities for dealing with strings.
+ *
+ * When requiring `laxar`, it is available as `laxar.string`.
+ *
+ * @module object
  */
 define( 'laxar/lib/utilities/string',[], function() {
    'use strict';
@@ -1123,7 +1293,6 @@ define( 'laxar/lib/utilities/string',[], function() {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * <a name="format"></a>
     * Substitutes all unescaped placeholders in the given string for a given indexed or named value.
     * A placeholder is written as a pair of brackets around the key of the placeholder. An example of an
     * indexed placeholder is `[0]` and a named placeholder would look like this `[replaceMe]`. If no
@@ -1142,8 +1311,8 @@ define( 'laxar/lib/utilities/string',[], function() {
     * // => 'Hello Hans and Roswita, how do you like Pizza?'
     * ```
     * If a pair of brackets should not be treated as a placeholder, the opening bracket can simply be escaped
-    * by backslashes (thus to get an actual backslash in a JavaScript string literal, it needs to be written
-    * as double backslash):
+    * by backslashes (thus to get an actual backslash in a JavaScript string literal, which is then treated as
+    * an escape symbol, it needs to be written as double backslash):
     * ```javascript
     * string.format( 'A [something] should eventually only have \\[x].', {
     *    something: 'checklist'
@@ -1174,7 +1343,7 @@ define( 'laxar/lib/utilities/string',[], function() {
     * functions are applied in the order they appear within the placeholder.
     *
     * An example, where we assume that the mapping functions `flip` and `double` where defined by the user
-    * when creating the `formatString` function using [`createFormatter()`](#createFormatter):
+    * when creating the `formatString` function using {@link createFormatter}:
     * ```javascript
     * formatString( 'Hello [0:%s:flip], you owe me [1:double:%.2f] euros.', [ 'Peter', 12 ] );
     * // => 'Hello reteP, you owe me 24.00 euros.'
@@ -1205,8 +1374,7 @@ define( 'laxar/lib/utilities/string',[], function() {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * <a name="createFormatter"></a>
-    * Creates a new format function having the same api as [`format()`](#format). If the first argument is
+    * Creates a new format function having the same api as {@link format}. If the first argument is
     * omitted or `null`, the default formatters for type specifiers are used. Otherwise only the provided map
     * of specifiers is available to the returned format function. Each key of the map is a specifier character
     * where the `%` is omitted and the value is the formatting function. A formatting function receives the
@@ -1231,7 +1399,7 @@ define( 'laxar/lib/utilities/string',[], function() {
     * // => '2^3 = 8'
     * ```
     *
-    * The second argument is completely additional to the behavior of the default [`format()`](#format)
+    * The second argument is completely additional to the behavior of the default {@link format}
     * function. Here a map from mapping function id to actual mapping function can be passed in. Whenever the
     * id of a mapping function is found within the placeholder, that mapping function is called with the
     * current value and its return value is either passed to the next mapping function or rendered
@@ -1254,19 +1422,19 @@ define( 'laxar/lib/utilities/string',[], function() {
     *
     * @param {Object} typeFormatters
     *    map from format specifier (single letter without leading `%`) to formatting function
-    * @param {Object} [valueMappers]
+    * @param {Object} [optionalValueMappers]
     *    map from mapping identifier to mapping function
     *
     * @return {Function}
-    *    A function having the same api as [`format()`](#format)
+    *    A function having the same api as {@link format}
     */
-   function createFormatter( typeFormatters, valueMappers ) {
+   function createFormatter( typeFormatters, optionalValueMappers ) {
 
       if( !typeFormatters ) {
          typeFormatters = DEFAULT_FORMATTERS;
       }
-      if( !valueMappers ) {
-         valueMappers = {};
+      if( !optionalValueMappers ) {
+         optionalValueMappers = {};
       }
 
       function format( string, optionalIndexedReplacements, optionalNamedReplacements ) {
@@ -1358,8 +1526,8 @@ define( 'laxar/lib/utilities/string',[], function() {
                         '" (Known specifiers are: ' + knownSpecifiers + ').' );
                   }
                }
-               else if( part in valueMappers ) {
-                  return valueMappers[ part ]( value );
+               else if( part in optionalValueMappers ) {
+                  return optionalValueMappers[ part ]( value );
                }
 
                return value;
@@ -1404,6 +1572,11 @@ define( 'laxar/lib/utilities/string',[], function() {
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * A module for the `axWidgetArea` directive.
+ *
+ * @module axWidgetArea
+ */
 define( 'laxar/lib/directives/widget_area/widget_area',[
    'angular',
    '../../utilities/string'
@@ -1416,6 +1589,30 @@ define( 'laxar/lib/directives/widget_area/widget_area',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * The *axWidgetArea* directive is used to mark DOM elements as possible containers for widgets. They're
+    * most commonly used in layouts using static names. These areas can then be referenced from within page
+    * definitions in order to add widgets to them. Additionally it is possible that widgets expose widget
+    * areas themselves. In that case the name given within the widget template is prefixed with the id of the
+    * widget instance, separated by a dot. If, within a widget, a name is dynamic (i.e. can be configured via
+    * feature configuration), the corresponding `ax-widget-area-binding` attribute can be set to bind a name.
+    *
+    * Example:
+    * ```html
+    * <div ax-widget-area="myArea"><!-- Here will be widgets --></div>
+    * ```
+    *
+    * Example with binding:
+    * ```html
+    * <div ax-widget-area
+    *      ax-widget-area-binding="features.content.areaName">
+    *    <!-- Here will be widgets -->
+    * </div>
+    * ```
+    *
+    * @name axWidgetArea
+    * @directive
+    */
    module.directive( DIRECTIVE_NAME, [ 'axPageService', function( pageService ) {
       return {
          restrict: 'A',
@@ -1479,11 +1676,18 @@ define( 'laxar/lib/directives/directives',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * Utilities for dealing with internationalization (i18n).
+ *
+ * When requiring `laxar`, it is available as `laxar.i18n`.
+ *
+ * @module i18n
+ */
 define( 'laxar/lib/i18n/i18n',[
    '../utilities/string',
    '../utilities/assert',
    '../utilities/configuration'
-], function( string, assert, configuration, undefined ) {
+], function( string, assert, configuration ) {
    'use strict';
 
    var localize = localizeRelaxed;
@@ -1516,25 +1720,32 @@ define( 'laxar/lib/i18n/i18n',[
       languageTagFromI18n: languageTagFromI18n
    };
 
+   /**
+    * Shortcut to {@link localizeRelaxed}.
+    *
+    * @name localize
+    * @type {Function}
+    */
+
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
     * Localize the given internationalized object using the given languageTag.
     *
     * @param {String} languageTag
-    *    The languageTag to lookup a localization with
-    *    Maybe undefined if the value is not i18n (app does not use i18n)
+    *    the languageTag to lookup a localization with. Maybe `undefined`, if the value is not i18n (app does
+    *    not use i18n)
     * @param {*} i18nValue
-    *    A possibly internationalized value:
-    *    - When passing a primitive value, it is returned as-is.
-    *    - When passing an object, the languageTag is used as a key within that object.
-    * @param {*=undefined} fallback
-    *    A value to use if no localization is available for the given language tag.
+    *    a possibly internationalized value:
+    *    - when passing a primitive value, it is returned as-is
+    *    - when passing an object, the languageTag is used as a key within that object
+    * @param {*} [optionalFallback]
+    *    a value to use if no localization is available for the given language tag
     *
     * @return {*}
-    *    The localized value if found, `undefined` otherwise
+    *    the localized value if found, `undefined` otherwise
     */
-   function localizeStrict( languageTag, i18nValue, fallback ) {
+   function localizeStrict( languageTag, i18nValue, optionalFallback ) {
       assert( languageTag ).hasType( String );
       if( !i18nValue || primitives[ typeof i18nValue ] ) {
          // Value is not i18n
@@ -1559,32 +1770,31 @@ define( 'laxar/lib/i18n/i18n',[
          }
       }
 
-      return fallback;
+      return optionalFallback;
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
     * For controls (such as a date-picker), we cannot anticipate all required language tags, as they may be
-    * app-specific. The relaxed localize behaves like localize if an exact localization is available.
-    * If not, the language tag is successively generalized by stripping off the rightmost sub-tags until a
-    * localization is found.
-    * Eventually, a fallback ('en') is used.
+    * app-specific. The relaxed localize behaves like localize if an exact localization is available. If not,
+    * the language tag is successively generalized by stripping off the rightmost sub-tags until a
+    * localization is found. Eventually, a fallback ('en') is used.
     *
     * @param {String} languageTag
-    *    The languageTag to lookup a localization with.
-    *    Maybe `undefined` if the value is not i18n (app does not use i18n)
+    *    the languageTag to lookup a localization with. Maybe `undefined`, if the value is not i18n (app does
+    *    not use i18n)
     * @param {*} i18nValue
-    *    A possibly internationalized value:
-    *    - When passing a primitive value, it is returned as-is.
-    *    - When passing an object, the `languageTag` is used to look up a localization within that object.
-    * @param {*=undefined} fallback
-    *    A value to use if no localization is available for the given language tag.
+    *    a possibly internationalized value:
+    *    - when passing a primitive value, it is returned as-is
+    *    - when passing an object, the `languageTag` is used to look up a localization within that object
+    * @param {*} [optionalFallback]
+    *    a value to use if no localization is available for the given language tag
     *
     * @return {*}
-    *    The localized value if found, the fallback `undefined` otherwise
+    *    the localized value if found, the fallback `undefined` otherwise
     */
-   function localizeRelaxed( languageTag, i18nValue, fallback ) {
+   function localizeRelaxed( languageTag, i18nValue, optionalFallback ) {
       assert( languageTag ).hasType( String );
       if( !i18nValue || primitives[ typeof i18nValue ] ) {
          // Value is not i18n (app does not use it)
@@ -1605,7 +1815,7 @@ define( 'laxar/lib/i18n/i18n',[
          fallbackTag = configuration.get( 'i18n.fallback', 'en' );
       }
 
-      return ( fallbackTag && localizeStrict( fallbackTag, i18nValue ) ) || fallback;
+      return ( fallbackTag && localizeStrict( fallbackTag, i18nValue ) ) || optionalFallback;
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1614,18 +1824,22 @@ define( 'laxar/lib/i18n/i18n',[
     * Encapsulate a given languageTag in a partially applied localize function.
     *
     * @param {String} languageTag
-    *    The languageTag to lookup localizations with
-    * @param {*=undefined} fallback
-    *    A value to use by the localizer function whenever no localization is available for the language tag.
+    *    the languageTag to lookup localizations with
+    * @param {*} [optionalFallback]
+    *    a value to use by the localizer function whenever no localization is available for the language tag
     *
-    * @return {Function<*,*>}
-    *    A single-arg localize-Function, which always uses the given language-tag
-    *    It also has a .format-method, which can be used as a shortcut to
-    *    `string.format( localize( x ), args )`
+    * @return {Localizer}
+    *    A single-arg localize-Function, which always uses the given language-tag. It also has a `.format`
+    *    -method, which can be used as a shortcut to `string.format( localize( x ), args )`
     */
-   function localizer( languageTag, fallback ) {
+   function localizer( languageTag, optionalFallback ) {
+
+      /**
+       * @name Localizer
+       * @private
+       */
       function partial( i18nValue ) {
-         return localize( languageTag, i18nValue, fallback );
+         return localize( languageTag, i18nValue, optionalFallback );
       }
 
       /**
@@ -1636,19 +1850,25 @@ define( 'laxar/lib/i18n/i18n',[
        * - `i18n.localizer( tag ).format( i18nValue, numericArgs, namedArgs )`.
        *
        * @param {String} i18nValue
-       *    The value to localize and then format
-       * @param {Array=undefined} optionalIndexedReplacements
-       *    Replacements for any numeric placeholders in the localized value.
-       * @param {Object=undefined} optionalNamedReplacements
-       *    Replacements for any named placeholders in the localized value.
+       *    the value to localize and then format
+       * @param {Array} [optionalIndexedReplacements]
+       *    replacements for any numeric placeholders in the localized value
+       * @param {Object} [optionalNamedReplacements]
+       *    replacements for any named placeholders in the localized value
+       *
+       * @return {String}
+       *    the formatted string, taking i18n into account
+       *
+       * @memberOf Localizer
        */
       partial.format = function( i18nValue, optionalIndexedReplacements, optionalNamedReplacements ) {
          var formatString = localize( languageTag, i18nValue );
          if( formatString === undefined ) {
-            return fallback;
+            return optionalFallback;
          }
          return format( formatString, optionalIndexedReplacements, optionalNamedReplacements );
       };
+
       return partial;
    }
 
@@ -1658,19 +1878,19 @@ define( 'laxar/lib/i18n/i18n',[
     * Retrieve the language tag of the current locale from an i18n model object, such as used on the scope.
     *
     * @param {{locale: String, tags: Object<String, String>}} i18n
-    *    An internationalization model, with reference to the currently active locale and a map from
-    *    locales to language tags.
-    * @param {*=undefined} fallbackLanguageTag
-    *    A language tag to use if no tags are found on the given object.
+    *    an internationalization model, with reference to the currently active locale and a map from locales
+    *    to language tags
+    * @param {*} [optionalFallbackLanguageTag]
+    *    a language tag to use if no tags are found on the given object
     *
     * @return {String}
-    *    The localized value if found, `undefined` otherwise
+    *    the localized value if found, `undefined` otherwise
     */
-   function languageTagFromI18n( i18n, fallbackLanguageTag ) {
+   function languageTagFromI18n( i18n, optionalFallbackLanguageTag ) {
       if( !i18n || !i18n.hasOwnProperty( 'tags' ) ) {
-         return fallbackLanguageTag;
+         return optionalFallbackLanguageTag;
       }
-      return i18n.tags[ i18n.locale ] || fallbackLanguageTag;
+      return i18n.tags[ i18n.locale ] || optionalFallbackLanguageTag;
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1694,13 +1914,33 @@ define( 'laxar/lib/i18n/i18n',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * Utilities for dealing with functions.
+ *
+ * When requiring `laxar`, it is available as `laxar.fn`.
+ *
+ * @module fn
+ */
 define( 'laxar/lib/utilities/fn',[], function() {
    'use strict';
 
    return {
+
       /**
-       * Underscore `debounce`, but with LaxarJS offering mocking in tests.
-       * @see http://underscorejs.org/#debounce
+       * [Underscore `debounce`](http://underscorejs.org/#debounce), but with LaxarJS offering mocking in
+       * tests. See [http://underscorejs.org/#debounce](http://underscorejs.org/#debounce) for detailed
+       * documentation.
+       *
+       * @param {Function} f
+       *    the function to return a debounced version of
+       * @param {Number} waitMs
+       *    milliseconds to debounce before invoking `f`
+       * @param {Boolean} immediate
+       *    if `true` `f` is invoked prior to start waiting `waitMs` milliseconds. Otherwise `f` is invoked
+       *    after the given debounce duration has passed. Default is `false`
+       *
+       * @return {Function}
+       *    the debounced function
        */
       debounce: function( f, waitMs, immediate ) {
          var timeout, args, context, timestamp, result;
@@ -1735,6 +1975,23 @@ define( 'laxar/lib/utilities/fn',[], function() {
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * Provides a convenient api over the browser's `window.localStorage` and `window.sessionStorage` objects. If
+ * a browser doesn't support [web storage](http://www.w3.org/TR/webstorage/), a warning is logged to the
+ * `console` (if available) and a non-persistent in-memory store will be used instead. Note that this can for
+ * example also happen when using Mozilla Firefox with cookies disabled and as such isn't limited to older
+ * browsers.
+ *
+ * Additionally, in contrast to plain *web storage* access, non-string values will be automatically passed
+ * through JSON (de-) serialization on storage or retrieval. All keys will be prepended with a combination of
+ * an arbitrary and a configured namespace to prevent naming clashes with other web applications running on
+ * the same host and port. All {@link StorageApi} accessor methods should then be called without any namespace
+ * since adding and removing it, is done automatically.
+ *
+ * When requiring `laxar`, it is available as `laxar.storage`.
+ *
+ * @module storage
+ */
 define( 'laxar/lib/utilities/storage',[
    './assert',
    './configuration'
@@ -1747,22 +2004,24 @@ define( 'laxar/lib/utilities/storage',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Wrapper for `window.localStorage` or `window.sessionStorage` providing a more convenient API.
-    *
-    * Provides a K/V store where values can be any "JSON-stringifyable" object and stores them in a `backend`
-    * only supporting strings as values. Also, all keys are transparently prefixed by a namespace, so that
-    * many storage wrappers can share the same backend without interference.
-    *
     * @param {Object} backend
     *    the K/V store, probably only accepting string values
     * @param {String} namespace
     *    prefix for all keys for namespacing purposes
     *
-    * @return {Object}
+    * @return {StorageApi}
     *    a storage wrapper to the given backend with `getItem`, `setItem` and `removeItem` methods
+    *
+    * @private
     */
    function createStorage( backend, namespace ) {
 
+      /**
+       * The api returned by one of the `get*Storage` functions of the *storage* module.
+       *
+       * @name StorageApi
+       * @constructor
+       */
       return {
          getItem: getItem,
          setItem: setItem,
@@ -1772,14 +2031,15 @@ define( 'laxar/lib/utilities/storage',[
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       /**
-       * Retrieves an item by key from the store. Note that the namespace the store was created with is
-       * prepended automatically to the key.
+       * Retrieves a `value` by `key` from the store. JSON deserialization will automatically be applied.
        *
        * @param {String} key
-       *    the key of the item to retrieve
+       *    the key of the item to retrieve (without namespace prefix)
        *
        * @return {*}
        *    the value or `null` if it doesn't exist in the store
+       *
+       * @memberOf StorageApi
        */
       function getItem( key ) {
          var item = backend.getItem( namespace + '.' + key );
@@ -1789,13 +2049,15 @@ define( 'laxar/lib/utilities/storage',[
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       /**
-       * Sets a value for a key. An existing value will be overwritten Note that the namespace the store was
-       * created with is prepended automatically to the key.
+       * Sets a `value` for a `key`. The value should be JSON serializable. An existing value will be
+       * overwritten.
        *
        * @param {String} key
-       *    the key of the item to set
+       *    the key of the item to set (without namespace prefix)
        * @param {*} value
        *    the new value to set
+       *
+       * @memberOf StorageApi
        */
       function setItem( key, value ) {
          var nsKey = namespace + '.' + key;
@@ -1810,11 +2072,12 @@ define( 'laxar/lib/utilities/storage',[
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       /**
-       * Removes the value associated with `key` from the store. Note that the namespace the store was created
-       * with is prepended automatically to the key.
+       * Removes the value associated with `key` from the store.
        *
        * @param {String} key
-       *    the key of the item to remove
+       *    the key of the item to remove (without namespace prefix)
+       *
+       * @memberOf StorageApi
        */
       function removeItem( key ) {
          backend.removeItem( namespace + '.' + key );
@@ -1866,7 +2129,6 @@ define( 'laxar/lib/utilities/storage',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function generateUniquePrefix() {
-      /* jshint bitwise:false */
       var prefix = configuration.get( 'storagePrefix' );
       if( prefix ) {
          return prefix;
@@ -1874,6 +2136,7 @@ define( 'laxar/lib/utilities/storage',[
 
       var str = configuration.get( 'name', '' );
       var res = 0;
+      /* jshint bitwise:false */
       for( var i = str.length - 1; i > 0; --i ) {
          res = ((res << 5) - res) + str.charCodeAt( i );
          res |= 0;
@@ -1896,6 +2159,9 @@ define( 'laxar/lib/utilities/storage',[
     *    the backend for local storage, Default is `window.localStorage`
     * @param {Object} [sessionStorageBackend]
     *    the backend for session storage, Default is `window.sessionStorage`
+    *
+    * @return {Object}
+    *    a new storage module
     */
    function create( localStorageBackend, sessionStorageBackend ) {
 
@@ -1909,9 +2175,9 @@ define( 'laxar/lib/utilities/storage',[
           * Returns a local storage object for a specific local namespace.
           *
           * @param {String} namespace
-          *    the namespace
+          *    the namespace to prepend to keys
           *
-          * @return {Object}
+          * @return {StorageApi}
           *    the local storage object
           */
          getLocalStorage: function( namespace ) {
@@ -1926,9 +2192,9 @@ define( 'laxar/lib/utilities/storage',[
           * Returns a session storage object for a specific local namespace.
           *
           * @param {String} namespace
-          *    the namespace
+          *    the namespace to prepend to keys
           *
-          * @return {Object}
+          * @return {StorageApi}
           *    the session storage object
           */
          getSessionStorage: function( namespace ) {
@@ -1940,9 +2206,10 @@ define( 'laxar/lib/utilities/storage',[
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          /**
-          * Returns the local storage object for application scoped keys.
+          * Returns the local storage object for application scoped keys. This is equivalent to
+          * `storage.getLocalStorage( 'app' )`.
           *
-          * @return {Object}
+          * @return {StorageApi}
           *    the application local storage object
           */
          getApplicationLocalStorage: function() {
@@ -1952,9 +2219,10 @@ define( 'laxar/lib/utilities/storage',[
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          /**
-          * Returns the session storage object for application scoped keys.
+          * Returns the session storage object for application scoped keys. This is equivalent to
+          * `storage.getSessionStorage( 'app' )`.
           *
-          * @return {Object}
+          * @return {StorageApi}
           *    the application session storage object
           */
          getApplicationSessionStorage: function() {
@@ -2207,6 +2475,13 @@ define( 'laxar/lib/runtime/runtime',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * The *event_bus* module contains the implementation of the *LaxarJS EventBus*. In an application you'll
+ * never use this module or instantiate an event bus instance directly. Instead within a widget the event bus
+ * can be injected via service or accessed as property on the AngularJS `$scope` or `axContext` injections.
+ *
+ * @module event_bus
+ */
 define( 'laxar/lib/event_bus/event_bus',[
    '../utilities/assert',
    '../utilities/object',
@@ -2237,6 +2512,7 @@ define( 'laxar/lib/event_bus/event_bus',[
     *    the timeout in milliseconds used by {@link EventBus#publishAndGatherReplies}. Default is 120000ms
     *
     * @constructor
+    * @private
     */
    function EventBus( optionalConfiguration ) {
       this.config_ = object.options( optionalConfiguration, {
@@ -2257,7 +2533,7 @@ define( 'laxar/lib/event_bus/event_bus',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Sets an handler for all errors that may occur during event processing. It receives an error message as
+    * Sets a handler for all errors that may occur during event processing. It receives an error message as
     * first argument and a map with additional information on the problem as second argument. There may be
     * instances of `Error` as values within the map.
     * The default error handler simply logs all issues to `console.error` or `console.log` if available.
@@ -2273,10 +2549,19 @@ define( 'laxar/lib/event_bus/event_bus',[
 
    /**
     * Sets a mediator, that has the chance to alter events shortly before their delivery to the according
-    * subscribers. Its sole argument is the complete list of queued events, that should be delivered during
-    * the current JavaScript event loop. It then needs to return this optionally modified list again. Events
-    * may be added or deleted at will, but the return type needs to be an array containing zero or more event-
-    * like objects.
+    * subscribers. Its sole argument is the complete list of queued event items that should be delivered
+    * during the current JavaScript event loop. It then needs to return this list, including optional
+    * modifications, again. Event items may be added or deleted at will, but the return type needs to be an
+    * array containing zero or more event item-like objects.
+    *
+    * An event item has these properties:
+    * - `meta`: map with meta information for this event
+    *   - `name`: full name of the published event
+    *   - `cycleId`: the id of the cycle the event was published in
+    *   - `sender`: name of sender (if available)
+    *   - `initiator`: name of the sender initiating the current event cycle (if available)
+    *   - `options`: map of options given when publishing the event
+    * - `event`: the event payload it self as published by the sender
     *
     * @param {Function} mediator
     *    the mediator function
@@ -2289,7 +2574,7 @@ define( 'laxar/lib/event_bus/event_bus',[
 
    /**
     * Adds an inspector, that gets notified when certain actions within the event bus take place. Currently
-    * this includes the following actions:
+    * these actions may occur:
     *
     * - `subscribe`: a new subscriber registered for an event
     * - `publish`: an event is published but not yet delivered
@@ -2299,10 +2584,10 @@ define( 'laxar/lib/event_bus/event_bus',[
     *
     * - `action`: one of the actions from above
     * - `source`: the origin of the `action`
-    * - `target`: the name of the event subscriber (`deliver` action)
-    * - `event`: the full name of the event or the subscribed event (`subscribe` action)
-    * - `eventObject`: the published event item (`publish` action)
-    * - `subscribedTo`: the event, possibly with omissions, the subscriber subscribed to (`deliver` action)
+    * - `target`: the name of the event subscriber (`deliver` action only)
+    * - `event`: the full name of the event or the subscribed event (`subscribe` action only)
+    * - `eventObject`: the published event item (`publish` action only)
+    * - `subscribedTo`: the event, possibly with omissions, the subscriber subscribed to (`deliver` action only)
     * - `cycleId`: the id of the event cycle
     *
     * The function returned by this method can be called to remove the inspector again and prevent it from
@@ -2329,7 +2614,7 @@ define( 'laxar/lib/event_bus/event_bus',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Subscribes to an event by name. An event name consists of so called _topics_, where each topic is
+    * Subscribes to an event by name. An event name consists of so called *topics*, where each topic is
     * separated from another by dots (`.`). If a topic is omitted, this is treated as a wildcard. Note that
     * two dots in the middle or one dot at the beginning of an event name must remain, whereas a dot at the
     * end may be omitted. As such every event name has an intrinsic wildcard at its end. For example these are
@@ -2339,7 +2624,7 @@ define( 'laxar/lib/event_bus/event_bus',[
     * - `.event`: matches `some.event`, `any.event`, `any.event.again`
     * - `some..event`: matches `some.fancy.event`, `some.special.event`
     *
-    * Additionally subtopics are supported. A subtopic are fragments within a topic, separated from another by
+    * Additionally *subtopics* are supported. A subtopic are fragments of a topic, separated from another by
     * simple dashes (`-`). Here only suffixes of subtopics may be omitted when subscribing. Thus subscribing
     * to `some.event` would match an event published with name `some.event-again` or even
     * `some.event-another.again`.
@@ -2347,22 +2632,25 @@ define( 'laxar/lib/event_bus/event_bus',[
     * When an event is delivered, the subscriber function receives two arguments:
     * The first one is the event object as it was published. If `clone` yields `true` this is a simple deep
     * copy of the object (note that only properties passing a JSON-(de)serialization remain). If `false` the
-    * object is frozen using `Object.freeze` recursively in browsers that support freezing. In Any other
+    * object is frozen using `Object.freeze` recursively in browsers that support freezing. In any other
     * browser this is just an identity operation.
     *
     * The second one is a meta object with these properties:
     *
     * - `unsubscribe`: A function to directly unsubscribe the called subscriber from further events
-    * - `name`: The name of the event as it actually was delivered (i.e. without wildcards).
-    * - `cycleId`: The cycle the event was delivered in
+    * - `name`: The name of the event as it actually was published (i.e. without wildcards).
+    * - `cycleId`: The id of the cycle the event was published (and delivered) in
     * - `sender`: The id of the event sender, may be `null`.
-    * - `initiator`: The id of the initator of the cycle. Currently not implemented, thus always `null`.
+    * - `initiator`: The id of the initiator of the cycle. Currently not implemented, thus always `null`.
     * - `options`: The options that were passed to `publish` or `publishAndGatherReplies` respectively.
+    *
+    * Note that the subscriber function will receive a property `ax__events` to keep track of all events this
+    * function was attached to. This is necessary to make {@link EventBus#unsubscribe} work.
     *
     * @param {String} eventName
     *    the name of the event to subscribe to
     * @param {Function} subscriber
-    *    a function to call whenever an event matching the name is published
+    *    a function to call whenever an event matching `eventName` is published
     * @param {Object} [optionalOptions]
     *    additional options for the subscribe action
     * @param {String} optionalOptions.subscriber
@@ -2475,8 +2763,8 @@ define( 'laxar/lib/event_bus/event_bus',[
     * Asynchronously publishes an event on the event bus. The returned promise will be queued as soon as this
     * event is delivered and, if during delivery a new event was enqueued, resolved after that new event was
     * delivered. If no new event is queued during delivery of this event, the promise is instantly resolved.
-    * To make it a bit clearer, lets assume we publish and thus enqueue an event at time `t`. It then will be
-    * delivered at time `t+1`. At that precise moment the promise is enqueued to be resolved soon. We then
+    * To make this a bit clearer, lets assume we publish and thus enqueue an event at time `t`. It then will
+    * be delivered at time `t+1`. At that precise moment the promise is enqueued to be resolved soon. We then
     * distinguish between two cases:
     *
     * - At time `t+1` no subscriber publishes (i.e. enqueues) an event: Thus there is no event in the same
@@ -2487,11 +2775,12 @@ define( 'laxar/lib/event_bus/event_bus',[
     * The implication of this is the following:
     *
     * We have two collaborators, A and B. A listens to event b and B listens to event a.
-    * Whenever A publishes a and B than instantly (i.e. in the same event cycle of the JavaScript runtime its
-    * subscriber function was called) "responds" by publishing b, b arrives at the subscriber function of A
-    * before the promise of A's publish action is resolved.
+    * Whenever A publishes a and B than instantly (i.e. in the same event cycle of the JavaScript runtime
+    * where its subscriber function was called) *responds* by publishing b, b arrives at the subscriber
+    * function of A, before the promise of A's publish action is resolved.
     * It is hence possible to observe possible effects of an event sent by oneself, under the conditions
-    * mentioned above.
+    * mentioned above. Practically this is used internally for the implementation of
+    * {@link EventBus#publishAndGatherReplies}.
     *
     * @param {String} eventName
     *    the name of the event to publish
@@ -2550,21 +2839,21 @@ define( 'laxar/lib/event_bus/event_bus',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Publishes an event that follows the request-will-did pattern and awaits all replies. This pattern has
+    * Publishes an event that follows the *request-will-did pattern* and awaits all replies. This pattern has
     * evolved over time and is of great use when handling the asynchronous nature of event bus events.
     *
     * Certain rules need to be fulfilled: First the initiator needs to call this method with an event whose
     * name has the suffix `Request`, e.g. `takeActionRequest`. All collaborators that want to react to this
     * event then either do so in the same event cycle by sending a `didTakeAction` event or announce that they
     * will do something asynchronously by publishing a `willTakeAction` event. In the latter case they need to
-    * broadcast the end of their action by sending a `didTakeAction` event. Note that for both events the same
-    * sender name needs to be given. Otherwise they cannot be mapped and the event bus doesn't know if all
-    * asynchronous replies were already received.
+    * broadcast the fulfillment of their action by sending a `didTakeAction` event. Note that for both events
+    * the same sender name needs to be given. Otherwise they cannot be mapped and the event bus doesn't know
+    * if all asynchronous replies were already received.
     *
     * Additionally a timer is started using either the globally configured `pendingDidTimeout` ms value or the
-    * value provided as option to this method. If that timer expires before all did* events to all given will*
-    * events were received, the error handler is called to handle the incident and the promise is resolved as
-    * normally.
+    * value provided as option to this method. If that timer expires before all `did*` events to all given
+    * `will*` events were received, the error handler is called to handle the incident and the promise is
+    * rejected with all response received up to now.
     *
     * @param {String} eventName
     *    the name of the event to publish
@@ -2893,11 +3182,11 @@ define( 'laxar/lib/event_bus/event_bus',[
        * Initializes the module.
        *
        * @param {Object} q
-       *    a promise library like AngularJS' $q
+       *    a promise library like AngularJS' `$q`
        * @param {Function} nextTick
-       *    a next tick function like process.nextTick or AngularJS' $timeout
+       *    a next tick function like `process.nextTick` or AngularJS' `$timeout`
        * @param {Function} timeoutFunction
-       *    a timeout function like window.setTimeout  or AngularJS' $timeout
+       *    a timeout function like `window.setTimeout`  or AngularJS' `$timeout`
        */
       init: function( q, nextTick, timeoutFunction ) {
          q_ = q;
@@ -2913,6 +3202,18 @@ define( 'laxar/lib/event_bus/event_bus',[
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
+ */
+/**
+ * The *file_resource_provider* module defines a mechanism to load static assets from the web server of the
+ * LaxarJS application efficiently. Whenever a file should be requested from the server, the file resource
+ * provider should be used in favor of manual http requests, due to two reasons: During development it reduces
+ * the amount of `404` status replies for files that may or may not exist, and when making a release build,
+ * file contents may optionally be embedded in the build bundle. This makes further http requests redundant,
+ * which is especially relevant in high-latency networks, such as cellular networks.
+ *
+ * This module should not be used directly, but via the `axFileResourceProvider` service provided by LaxarJS.
+ *
+ * @module file_resource_provider
  */
 define( 'laxar/lib/file_resource_provider/file_resource_provider',[
    '../utilities/assert',
@@ -2938,9 +3239,11 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
     * it is assumed to be nonexistent.
     *
     * @param {String} rootPath
-    *    the path to the root of the application. It is needed to prefix relative paths found in the listing
+    *    the path to the root of the application. It is needed to prefix relative paths found in a listing
     *    with an absolute prefix
+    *
     * @constructor
+    * @private
     */
    function FileResourceProvider( rootPath ) {
       this.useEmbedded_ = configuration.get( 'useEmbeddedFileListings', false );
@@ -2956,12 +3259,14 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * If available, resolves the returned promise with the file's contents. Otherwise the promise is rejected.
-    * It uses the file mapping prior to fetching the contents to prevent from 404 errors. If no listing for
-    * the path is available, the request simply takes place and either succeeds or fails.
+    * If available, resolves the returned promise with the requested file's contents. Otherwise the promise is
+    * rejected. It uses the file mapping prior to fetching the contents to prevent from 404 errors. In the
+    * optimal case the contents are already embedded in the listing and simply need to be returned. If no
+    * listing for the path is available, a request simply takes place and either succeeds or fails.
     *
     * @param {String} url
     *    the uri to the resource to provide
+    *
     * @return {Promise}
     *    resolved with the file's content or rejected when the file could not be fetched
     */
@@ -2986,6 +3291,7 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
     *
     * @param {String} url
     *    the uri to check for availability
+    *
     * @return {Promise}
     *    a promise that is always resolved with a boolean value
     */
@@ -3020,8 +3326,8 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Sets the contents of a file listing file to the given object.
-    * This a useful alternative to #setFileListingUri, to avoid an additional round-trip during production.
+    * Sets the contents of a file listing file to the given object. This a useful alternative to
+    * {@link FileResourceProvider#setFileListingUri}, to avoid an additional round-trip during production.
     *
     * @param {String} directory
     *    the directory the file listing is valid for
@@ -3038,11 +3344,12 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
 
    /**
     * Try to lookup a file resource in the provider's listings.
-    * @private
     *
-    * @returns {Promise<*>}
+    * @return {Promise}
     *    Resolves to `true` (listed but not embedded), to `false` (file is not listed), or to a string
     *    (embedded content for a listed file).
+    *
+    * @private
     */
    function entry( provider, resourcePath ) {
       var usablePrefixes = Object.keys( provider.fileListingUris_ ).filter( function( prefix ) {
@@ -3108,10 +3415,12 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * @private
     * @param {FileResourceProvider} self
     * @param {String} url A url to get
+    *
     * @return {Promise<String>} Resolved to the file contents if the request succeeds
+    *
+    * @private
     */
    function httpGet( self, url ) {
       if( url in self.httpGets_ ) {
@@ -3135,10 +3444,12 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * @private
     * @param {FileResourceProvider} self
     * @param {String} url A url to check using a HEAD request
+    *
     * @return {Promise<Boolean>} Resolved to `true` if a HEAD-request to the url succeeds, else to `false`.
+    *
+    * @private
     */
    function httpHead( self, url ) {
       if( url in self.httpHeadCache_ ) {
@@ -3172,9 +3483,11 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
        * Creates and returns a new instance.
        *
        * @param {String} rootPath
-       *    the path to the root of the application. It is needed to prefix relative paths found in the
-       *    listing with an absolute prefix
+       *    the path to the root of the application. It is needed to prefix relative paths found in a listing
+       *    with an absolute prefix
+       *
        * @return {FileResourceProvider}
+       *    a new instance
        */
       create: function( rootPath ) {
          assert( q_ ).isNotNull( 'Need a promise implementation like $q or Q' );
@@ -3189,9 +3502,9 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
        * Initializes the module.
        *
        * @param {Object} q
-       *    a promise library like AngularJS' $q
+       *    a promise library like AngularJS' `$q`
        * @param {Object} httpClient
-       *    a http client whose api is like AngularJS' $http service
+       *    a http client whose api conforms to AngularJS' `$http` service
        */
       init: function( q, httpClient ) {
          q_ = q;
@@ -3272,6 +3585,12 @@ define( 'laxar/lib/loaders/layout_loader',[
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
+ */
+/**
+ * The theme manager simplifies lookup of theme specific assets. It should be used via AngularJS DI as
+ * *axThemeManager* service.
+ *
+ * @module theme_manager
  */
 define( 'laxar/lib/runtime/theme_manager',[
    '../utilities/assert',
@@ -3417,6 +3736,13 @@ define( 'laxar/lib/runtime/theme_manager',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * This module provides some services for AngularJS DI. Although it is fine to use these services in widgets,
+ * most of them are primarily intended to be used internally by LaxarJS. Documentation is nevertheless of use
+ * when e.g. they need to be mocked during tests.
+ *
+ * @module axRuntimeServices
+ */
 define( 'laxar/lib/runtime/runtime_services',[
    'angular',
    '../event_bus/event_bus',
@@ -3458,10 +3784,31 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * This is a scheduler for asynchronous tasks (like nodejs' `process.nextTick`)  trimmed for performance.
+    * It is intended for use cases where many tasks are scheduled in succession within one JavaScript event
+    * loop. It integrates into the AngularJS *$digest* cycle, while trying to minimize the amount of full
+    * *$digest* cycles.
+    *
+    * For example in LaxarJS the global event bus instance ({@link axGlobalEventBus}) uses this service.
+    *
+    * @name axHeartbeat
+    * @injection
+    */
    module.factory( 'axHeartbeat', [ '$window', '$rootScope', function( $window, $rootScope ) {
       var nextQueue = [];
       var beatRequested = false;
-      function onNext( f ) {
+
+      /**
+       * Schedules a function for the next heartbeat. If no heartbeat was triggered yet, it will be requested
+       * now.
+       *
+       * @param {Function} func
+       *    a function to schedule for the next tick
+       *
+       * @memberOf axHeartbeat
+       */
+      function onNext( func ) {
          if( !beatRequested ) {
             beatRequested = true;
             $window.setTimeout( function() {
@@ -3476,17 +3823,37 @@ define( 'laxar/lib/runtime/runtime_services',[
                beatRequested = false;
             }, 0 );
          }
-         nextQueue.push( f );
+         nextQueue.push( func );
       }
 
       var beforeQueue = [];
-      function onBeforeNext( f ) {
-         beforeQueue.push( f );
+
+      /**
+       * Schedules a function to be called before the next heartbeat occurs. Note that `func` may never be
+       * called, if there is no next heartbeat.
+       *
+       * @param {Function} func
+       *    a function to call before the next heartbeat
+       *
+       * @memberOf axHeartbeat
+       */
+      function onBeforeNext( func ) {
+         beforeQueue.push( func );
       }
 
       var afterQueue = [];
-      function onAfterNext( f ) {
-         afterQueue.push( f );
+
+      /**
+       * Schedules a function to be called after the next heartbeat occured. Note that `func` may never be
+       * called, if there is no next heartbeat.
+       *
+       * @param {Function} func
+       *    a function to call after the next heartbeat
+       *
+       * @memberOf axHeartbeat
+       */
+      function onAfterNext( func ) {
+         afterQueue.push( func );
       }
 
       return {
@@ -3499,8 +3866,20 @@ define( 'laxar/lib/runtime/runtime_services',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * A timestamp function, provided as a service to support the jasmine mock clock during testing.
-    * The mock-free implementation simply uses `new Date().getTime()`.
+    * A timestamp function, provided as a service to support the jasmine mock clock during testing. The
+    * mock-free implementation simply uses `new Date().getTime()`. Whenever a simple timestamp is needed in a
+    * widget, this service can be used to allow for hassle-free testing.
+    *
+    * Example:
+    * ```js
+    * Controller.$inject = [ 'axTimestamp' ];
+    * function Controller( axTimestamp ) {
+    *    var currentTimestamp = axTimestamp();
+    * };
+    * ```
+    *
+    * @name axTimestamp
+    * @injection
     */
    module.factory( 'axTimestamp', function() {
       return function() {
@@ -3510,6 +3889,19 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * The global event bus instance provided by the LaxarJS runtime. Widgets **should never** use this, as
+    * subscriptions won't be removed when a widget is destroyed. Instead widgets should always either use the
+    * `eventBus` property on their local `$scope` object or the service `axEventBus`. These take care of all
+    * subscriptions on widget destructions and thus prevent from leaking memory and other side effects.
+    *
+    * This service instead can be used by other services, that live throughout the whole lifetime of an
+    * application or take care of unsubscribing from events themselves. Further documentation on the api can
+    * be found at the *event_bus* module api doc.
+    *
+    * @name axGlobalEventBus
+    * @injection
+    */
    module.factory( 'axGlobalEventBus', [
       '$injector', '$window', 'axHeartbeat', 'axConfiguration',
       function( $injector, $window, heartbeat, configuration ) {
@@ -3535,19 +3927,44 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * Provides access to the global configuration, otherwise accessible via the *configuration* module.
+    * Further documentation can be found there.
+    *
+    * @name axConfiguration
+    * @injection
+    */
    module.factory( 'axConfiguration', [ function() {
       return configuration;
    } ] );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * Provides access to the i18n api, otherwise accessible via the *i18n* module. Further documentation can
+    * be found there.
+    *
+    * @name axI18n
+    * @injection
+    */
    module.factory( 'axI18n', [ function() {
       return i18n;
    } ] );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   module.factory( 'axFileResourceProvider', [ '$q', '$http', 'axConfiguration',
+   /**
+    * A global, pre-configured file resource provider instance. Further documentation on the api can
+    * be found at the *file_resource_provider* module api doc.
+    *
+    * This service has already all the file listings configured under `window.laxar.fileListings`. These can
+    * either be uris to listing JSON files or already embedded JSON objects of the directory tree.
+    *
+    * @name axFileResourceProvider
+    * @injection
+    */
+   module.factory( 'axFileResourceProvider', [
+      '$q', '$http', 'axConfiguration',
       function( $q, $http, configuration ) {
          fileResourceProvider.init( $q, $http );
 
@@ -3570,9 +3987,15 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * Provides access to the configured theme and theme relevant assets via a theme manager instance. Further
+    * documentation on the api can be found at the *theme_manager* module api doc.
+    *
+    * @name axThemeManager
+    * @injection
+    */
    module.factory( 'axThemeManager', [
       '$q', 'axConfiguration', 'axFileResourceProvider',
-
       function( $q, configuration, fileResourceProvider ) {
          var theme = configuration.get( 'theme' );
          var manager = themeManager.create( fileResourceProvider, $q, theme );
@@ -3586,7 +4009,31 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   module.factory( 'axLayoutLoader', [ '$templateCache', 'axCssLoader', 'axThemeManager', 'axFileResourceProvider',
+   /**
+    * Loads a layout relative to the path `laxar-path-root` configured via RequireJS (by default
+    * `/application/layouts`), taking the configured theme into account. If a CSS file is found, it will
+    * directly be loaded into the page. A HTML template will instead get returned for manual insertion at the
+    * correct DOM location. For this service there is also the companion directive *axLayout* available.
+    *
+    * Example:
+    * ```js
+    * myNgModule.directive( [ 'axLayoutLoader', function( axLayoutLoader ) {
+    *    return {
+    *       link: function( scope, element, attrs ) {
+    *          axLayoutLoader.load( 'myLayout' )
+    *             .then( function( layoutInfo ) {
+    *                element.html( layoutInfo.html );
+    *             } );
+    *       }
+    *    };
+    * } ] );
+    * ```
+    *
+    * @name axLayoutLoader
+    * @injection
+    */
+   module.factory( 'axLayoutLoader', [
+      '$templateCache', 'axCssLoader', 'axThemeManager', 'axFileResourceProvider',
       function( $templateCache, cssLoader, themeManager, fileResourceProvider ) {
          return layoutLoader.create(
             paths.LAYOUTS, paths.THEMES, cssLoader, themeManager, fileResourceProvider, $templateCache
@@ -3596,6 +4043,15 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * A service to load css files on demand during development. If a merged release css file has already been
+    * loaded (marked with a `data-ax-merged-css` html attribute at the according `link` tag) or `useMergedCss`
+    * is configured as `true`, the `load` method will simply be a noop. In the latter case the merged css file
+    * will be loaded once by this service.
+    *
+    * @name axCssLoader
+    * @injection
+    */
    module.factory( 'axCssLoader', [ 'axConfiguration', 'axThemeManager', function( configuration, themeManager ) {
       var mergedCssFileLoaded = [].some.call( document.getElementsByTagName( 'link' ), function( link ) {
          return link.hasAttribute( 'data-ax-merged-css' );
@@ -3607,6 +4063,20 @@ define( 'laxar/lib/runtime/runtime_services',[
 
       var loadedFiles = [];
       var loader = {
+         /**
+          * If not already loaded, loads the given file into the current page by appending a `link` element to
+          * the document's `head` element.
+          *
+          * Additionally it works around a
+          * [style sheet limit](http://support.microsoft.com/kb/262161) in older Internet Explorers
+          * (version < 10). The workaround is based on
+          * [this test](http://john.albin.net/ie-css-limits/993-style-test.html).
+          *
+          * @param {String} url
+          *    the url of the css file to load
+          *
+          * @memberOf axCssLoader
+          */
          load: function( url ) {
 
             if( loadedFiles.indexOf( url ) === -1 ) {
@@ -3682,8 +4152,8 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    /**
     * Directives should use this service to stay informed about visibility changes to their widget.
-    * They should not attempt to determine their visibility from the EventBus (no DOM information),
-    * nor to poll it from the browser (too expensive).
+    * They should not attempt to determine their visibility from the event bus (no DOM information),
+    * nor poll it from the browser (too expensive).
     *
     * In contrast to the visibility events received over the event bus, these handlers will fire _after_ the
     * visibility change has been implemented in the DOM, at which point in time the actual browser rendering
@@ -3697,15 +4167,22 @@ define( 'laxar/lib/runtime/runtime_services',[
     *
     * If a widget becomes visible at all, the corresponding handlers for onChange and onShow are guaranteed
     * to be called at least once.
+    *
+    * @name axVisibilityService
+    * @injection
     */
-   module.factory( 'axVisibilityService', [ 'axHeartbeat', function( heartbeat, $rootScope ) {
+   module.factory( 'axVisibilityService', [ 'axHeartbeat', '$rootScope', function( heartbeat, $rootScope ) {
 
       /**
        * Create a DOM visibility handler for the given scope.
        *
        * @param {Object} scope
-       *    The scope from which to infer visibility. Must be a widget scope or nested in a widget scope.
-       * @returns {{isVisible: Function, onChange: Function, clear: Function, onShow: Function, onHide: Function}}
+       *    the scope from which to infer visibility. Must be a widget scope or nested in a widget scope
+       *
+       * @return {axVisibilityServiceHandler}
+       *    a visibility handler for the given scope
+       *
+       * @memberOf axVisibilityService
        */
       function handlerFor( scope ) {
          var handlerId = scope.$id;
@@ -3722,50 +4199,92 @@ define( 'laxar/lib/runtime/runtime_services',[
             throw new Error( 'axVisibilityService: could not determine widget area for scope: ' + handlerId );
          }
 
+         /**
+          * A scope bound visibility handler.
+          *
+          * @name axVisibilityServiceHandler
+          */
          var api = {
+
             /**
              * Determine if the governing widget scope's DOM is visible right now.
+             *
              * @return {Boolean}
-             *    `true` if the widget associated with this handler is visible right now, else `false`.
+             *    `true` if the widget associated with this handler is visible right now, else `false`
+             *
+             * @memberOf axVisibilityServiceHandler
              */
             isVisible: function() {
                return isVisible( areaName );
             },
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
             /**
-             * Schedule a handler to be called with the new DOM visibility on any DOM visibility change
+             * Schedule a handler to be called with the new DOM visibility on any DOM visibility change.
+             *
              * @param {Function<Boolean>} handler
              *    the callback to process visibility changes
-             * @return {Object}
+             *
+             * @return {axVisibilityServiceHandler}
              *    this visibility handler (for chaining)
+             *
+             * @memberOf axVisibilityServiceHandler
              */
             onChange: function( handler ) {
                addHandler( handlerId, areaName, handler, true );
                addHandler( handlerId, areaName, handler, false );
                return api;
             },
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
             /**
-             * Schedule a handler to be called with the new DOM visibility when it has changed to `true`
+             * Schedule a handler to be called with the new DOM visibility when it has changed to `true`.
+             *
              * @param {Function<Boolean>} handler
              *    the callback to process visibility changes
-             * @return {Object}
+             *
+             * @return {axVisibilityServiceHandler}
              *    this visibility handler (for chaining)
+             *
+             * @memberOf axVisibilityServiceHandler
              */
             onShow: function( handler ) {
                addHandler( handlerId, areaName, handler, true );
                return api;
             },
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
             /**
-             * Schedule a handler to be called with the new DOM visibility when it has changed to `false`
+             * Schedule a handler to be called with the new DOM visibility when it has changed to `false`.
+             *
              * @param {Function<Boolean>} handler
              *    the callback to process visibility changes
-             * @return {Object}
+             *
+             * @return {axVisibilityServiceHandler}
              *    this visibility handler (for chaining)
+             *
+             * @memberOf axVisibilityServiceHandler
              */
             onHide: function( handler ) {
                addHandler( handlerId, areaName, handler, false );
                return api;
             },
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            /**
+             * Removes all visibility handlers.
+             *
+             * @return {axVisibilityServiceHandler}
+             *    this visibility handler (for chaining)
+             *
+             * @memberOf axVisibilityServiceHandler
+             */
             clear: clear
+
          };
 
          return api;
@@ -3814,8 +4333,11 @@ define( 'laxar/lib/runtime/runtime_services',[
        * Determine if the given area's content DOM is visible right now.
        * @param {String} area
        *    the full name of the widget area to query
-       * @returns {Boolean}
+       *
+       * @return {Boolean}
        *    `true` if the area is visible right now, else `false`.
+       *
+       * @memberOf axVisibilityService
        */
       function isVisible( area ) {
          return knownState[ area ] || false;
@@ -3908,6 +4430,13 @@ define( 'laxar/lib/runtime/runtime_services',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * Overrides the default `$exceptionHandler` service of AngularJS, using the LaxarJS logger for output.
+    *
+    * @name $exceptionHandler
+    * @injection
+    * @private
+    */
    module.provider( '$exceptionHandler', function() {
       var handler = function( exception, cause ) {
          var msg = exception.message || exception;
@@ -5516,6 +6045,14 @@ define("json!laxar/static/schemas/flow.json", function(){ return {
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+/**
+ * The *flow* module is responsible for the handling of all tasks regarding navigation and routing and as such
+ * is part of the LaxarJS core. It is your communication partner on the other end of the event bus for
+ * `navigateRequest`, `willNavigate` and `didNavigate` events. For application developers it additionally
+ * provides the `axFlowService`, which can be used for some flow specific tasks.
+ *
+ * @module flow
+ */
 define( 'laxar/lib/runtime/flow',[
    'angular',
    'angular-route',
@@ -5686,6 +6223,12 @@ define( 'laxar/lib/runtime/flow',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   /**
+    * A service providing some flow specific tasks that may be useful from within widgets.
+    *
+    * @name axFlowService
+    * @injection
+    */
    module.factory( 'axFlowService', [ '$location', function( $location ) {
 
       var flowService = {
@@ -5698,11 +6241,13 @@ define( 'laxar/lib/runtime/flow',[
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
           * @param {Object} [optionalParameters]
-          *    optional map of place parameters. Missing parameters are taken from the parameters passed to
-          *    the currently active place
+          *    optional map of place parameters. Missing parameters are taken from the parameters that were
+          *    passed to the currently active place
           *
           * @return {string}
           *    the generated path
+          *
+          * @memberOf axFlowService
           */
          constructPath: function( targetOrPlace, optionalParameters ) {
             var newParameters = object.options( optionalParameters, activeParameters_ || {} );
@@ -5727,11 +6272,13 @@ define( 'laxar/lib/runtime/flow',[
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
           * @param {Object} [optionalParameters]
-          *    optional map of place parameters. Missing parameters are taken from the parameters passed to
-          *    the currently active place
+          *    optional map of place parameters. Missing parameters are taken from the parameters that were
+          *    passed to the currently active place
           *
           * @return {string}
           *    the generated anchor
+          *
+          * @memberOf axFlowService
           */
          constructAnchor: function( targetOrPlace, optionalParameters ) {
             return '#' + flowService.constructPath( targetOrPlace, optionalParameters );
@@ -5746,11 +6293,13 @@ define( 'laxar/lib/runtime/flow',[
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
           * @param {Object} [optionalParameters]
-          *    optional map of place parameters. Missing parameters are taken from the parameters passed to
-          *    the currently active place
+          *    optional map of place parameters. Missing parameters are taken from the parameters that were
+          *    passed to the currently active place
           *
           * @return {string}
           *    the generated url
+          *
+          * @memberOf axFlowService
           */
          constructAbsoluteUrl: function( targetOrPlace, optionalParameters ) {
             var absUrl = $location.absUrl().split( '#' )[0];
@@ -5764,6 +6313,8 @@ define( 'laxar/lib/runtime/flow',[
           *
           * @return {Object}
           *    the currently active place
+          *
+          * @memberOf axFlowService
           */
          place: function() {
             return object.deepClone( activePlace_ );
@@ -10825,6 +11376,7 @@ define( 'laxar/lib/testing/jquery_mock',[
    return $;
 
 } );
+
 /**
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
@@ -11824,6 +12376,7 @@ define( 'laxar/lib/testing/testing',[
    };
 
 } );
+
 /**
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
@@ -11843,3 +12396,4 @@ define( 'laxar/laxar_testing',[
    return new LaxarTesting();
 
 } );
+
