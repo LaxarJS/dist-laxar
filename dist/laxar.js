@@ -6203,6 +6203,10 @@ define("json!laxar/static/schemas/page.json", function(){ return {
                         "type": "string",
                         "description": "Path to the composition that should be included."
                      },
+                     "layout": {
+                        "type": "string",
+                        "description": "Path to the layout that should be inserted."
+                     },
                      "id": {
                         "type": "string",
                         "pattern": "^[a-z][a-zA-Z0-9_]*$",
@@ -6743,6 +6747,88 @@ define( 'laxar/lib/loaders/page_loader',[
 } );
 
 /**
+ * Copyright 2015 aixigo AG
+ * Released under the MIT license.
+ * http://laxarjs.org/license
+ */
+define( 'laxar/lib/runtime/layout_widget_adapter',[
+   'angular'
+], function( ng ) {
+   'use strict';
+
+   var $compile;
+   var $rootScope;
+   var module = ng.module( 'axLayoutWidgetAdapter', [] )
+      .run( [ '$compile', '$rootScope', function( _$compile_, _$rootScope_ ) {
+         $compile = _$compile_;
+         $rootScope = _$rootScope_;
+      } ] );
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function create( layout, widget ) {
+
+      var exports = {
+         createController: createController,
+         domAttachTo: domAttachTo,
+         domDetach: domDetach,
+         destroy: destroy
+      };
+      var layoutElement;
+      var scope;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function createController() {
+         // noop
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function domAttachTo( areaElement, htmlTemplate ) {
+         scope = $rootScope.$new();
+         scope.widget = widget;
+
+         var layoutNode = document.createElement( 'div' );
+         layoutNode.id = widget.id;
+         layoutNode.className = layout.className;
+         layoutNode.innerHTML = htmlTemplate;
+
+         layoutElement = $compile( layoutNode )( scope );
+         areaElement.appendChild( layoutNode );
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function domDetach() {
+         layoutElement.remove();
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function destroy() {
+         if( scope ){
+            scope.$destroy();
+         }
+         scope = null;
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      return exports;
+
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   return {
+      create: create,
+      name: module.name
+   };
+
+} );
+
+/**
  * Copyright 2014 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
@@ -7182,13 +7268,14 @@ define( 'laxar/lib/runtime/page',[
    '../loaders/page_loader',
    '../loaders/widget_loader',
    '../loaders/paths',
+   './layout_widget_adapter',
    './area_helper',
    './locale_event_manager',
    './visibility_event_manager'
-], function( ng, assert, layoutModule, pageLoader, widgetLoader, paths, createAreaHelper, createLocaleEventManager, createVisibilityEventManager ) {
+], function( ng, assert, layoutModule, pageLoader, widgetLoader, paths, layoutWidgetAdapter, createAreaHelper, createLocaleEventManager, createVisibilityEventManager ) {
    'use strict';
 
-   var module = ng.module( 'axPage', [ layoutModule.name ] );
+   var module = ng.module( 'axPage', [ layoutModule.name, layoutWidgetAdapter.name ] );
 
    /** Delay between sending didLifeCycle and attaching widget templates. */
    var WIDGET_ATTACH_DELAY_MS = 5;
@@ -7298,7 +7385,13 @@ define( 'laxar/lib/runtime/page',[
                   localeManager.subscribe();
                   // instantiate controllers
                   var widgets = widgetsForPage( page );
-                  return $q.all( widgets.map( widgetLoader_.load ) );
+                  return $q.all( widgets.map( function( widget ) {
+                        if( 'layout' in widget ) {
+                           return createLayoutWidgetAdapter( widget );
+                        }
+
+                        return widgetLoader_.load( widget );
+                     } ) );
                } )
                .then( function( widgetAdapters ) {
                   widgetAdapters_ = widgetAdapters;
@@ -7344,6 +7437,26 @@ define( 'laxar/lib/runtime/page',[
 
          function registerLayoutRenderer( render ) {
             renderLayout = render;
+         }
+
+         /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+         function createLayoutWidgetAdapter( widget ) {
+            return layoutLoader.load( widget.layout )
+               .then( function( layout ) {
+                  var adapter = layoutWidgetAdapter.create( layout, {
+                     area: widget.area,
+                     id: widget.id,
+                     path: widget.layout
+                  } );
+
+                  return {
+                     id: widget.id,
+                     adapter: adapter,
+                     destroy: adapter.destroy,
+                     templatePromise: $q.when( layout.htmlContent )
+                  };
+               } );
          }
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
