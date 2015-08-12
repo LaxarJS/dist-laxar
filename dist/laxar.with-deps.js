@@ -7344,8 +7344,13 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
 
    function bootstrap( widgetModules ) {
       var dependencies = ( widgetModules || [] ).map( function( module ) {
-         controllerNames[ module.name ] = capitalize( module.name ) + 'Controller';
+         // for lookup, use a normalized module name that can also be derived from the widget.json name:
+         var moduleKey = normalize( module.name );
+         controllerNames[ moduleKey ] = capitalize( module.name ) + 'Controller';
+
+         // add an additional lookup entry for deprecated "my.category.MyWidget" style module names:
          supportPreviousNaming( module.name );
+
          return module.name;
       } );
 
@@ -7391,9 +7396,8 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function createController() {
-         var widgetName = environment.specification.name;
-         var moduleName = widgetName.replace( /^./, function( _ ) { return _.toLowerCase(); } );
-         var controllerName = controllerNames[ moduleName ];
+         var moduleKey = normalize( environment.specification.name );
+         var controllerName = controllerNames[ moduleKey ];
 
          injections_ = {
             axContext: context,
@@ -7462,6 +7466,16 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
 
    function capitalize( _ ) {
       return _.replace( /^./, function( _ ) { return _.toUpperCase(); } );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function normalize( moduleName ) {
+      return moduleName.replace( /([a-zA-Z0-9])[-_]([a-zA-Z0-9])/g, function( $_, $1, $2 ) {
+         return $1 + $2.toUpperCase();
+      } ).replace( /^[A-Z]/, function( $_ ) {
+         return $_.toLowerCase();
+      } );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
