@@ -11700,6 +11700,8 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
    'use strict';
 
    var TICK_CONSTANT = 101;
+   var resourceCache = {};
+   var resourceChacheMisses = {};
 
    log.setLogThreshold( log.level.TRACE );
 
@@ -11730,8 +11732,20 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
    /**
     * Creates a test bed for widget controller tests.
     *
-    * @param {String} widgetPathOrModule
-    *    The path that can be used to load this widget into a page (e.g. 'ax-some-widget', 'laxar/my_widget').
+    * For historical reasons, a variety of invocations has to be supported:
+    *
+    * - preferred: directly pass the contents of the widget.json descriptor
+    *              this is the only clean way, which incidentally also works for AMD-installable widgets,
+    *              as they cannot rely on a category folder
+    * - supported: pass the file reference for this widget:
+    *              this is the path to the widget folder, relative to the RequireJS path laxar-path-widgets
+    * - deprecated: pass the old-style AngularJS module name (widget.category.SomeWidget)
+    *               from which the path is then guessed.
+    *
+    * @param {String} descriptorPathOrModule
+    *    The contents of the widget.json descriptor.
+    *    Alternatively (not recommended), the file reference to load this widget into a page
+    *    (e.g. 'ax-some-widget', 'laxar/my_widget').
     *    For backwards-compatibility, an old-style widget module name starting with 'widgets.' may be given
     *    instead (See LaxarJS/laxar#153).
     * @param {String} [controllerName]
@@ -11747,28 +11761,35 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
     *    @property {Function} controller   The controller
     *    @property {Object}   widgetMock   The widget specification @deprecated
     */
-   function createControllerTestBed( widgetPathOrModule, controllerName ) {
+   function createControllerTestBed( descriptorPathOrModule, controllerName ) {
       jasmine.Clock.useMock();
       mockDebounce();
 
+      var descriptor;
       var widgetPath;
       var moduleName;
       var fullControllerName;
-      if( widgetPathOrModule.indexOf( 'widgets.' ) === 0 ) {
+      if( descriptorPathOrModule.name ) {
+         // preferred call style (pass descriptor):
+         descriptor = descriptorPathOrModule;
+         moduleName = normalize( descriptor.name );
+         widgetPath = '/' + descriptor.name;
+         resourceCache[ widgetPath + '/widget.json' ] = descriptor;
+         fullControllerName = inferControllerName( moduleName );
+      }
+      else if( descriptorPathOrModule.indexOf( 'widgets.' ) === 0 ) {
          // old style module name (pre LaxarJS/laxar#153)
-         moduleName = widgetPathOrModule;
+         moduleName = descriptorPathOrModule;
          widgetPath = moduleName.replace( /^widgets\./, '' ).replace( /\./g, '/' );
          fullControllerName = moduleName + '.' + ( controllerName || 'Controller' );
       }
       else {
-         widgetPath = widgetPathOrModule;
-         var widget = widgetPath.replace( /(.*[/])?([^/]*)/, '$2' );
+         // early 1.0.x style: use (local) widget reference
+         widgetPath = descriptorPathOrModule;
          // derive the module from the directory name
-         moduleName = widget.replace( /(.)[_-]([a-z])/g, function( _, $1, $2 ) {
-            return $1 + $2.toUpperCase();
-         } );
-         var upperCaseModuleName = moduleName.charAt( 0 ).toUpperCase() + moduleName.slice( 1 );
-         fullControllerName = upperCaseModuleName + 'Controller';
+         var widgetName = widgetPath.replace( /(.*[/])?([^/]*)/, '$2' );
+         moduleName = normalize( widgetName );
+         fullControllerName = inferControllerName( moduleName );
       }
 
       var testBed = {
@@ -12076,18 +12097,16 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   var cache = {};
-   var misses = {};
    function getWidgetLoader( testBed ) {
       var q = portalMocks.mockQ();
       var fileResourceProvider = {
          provide: function( url ) {
             var deferred = q.defer();
-            if( cache[ url ] ) {
-               deferred.resolve( object.deepClone( cache[ url ] ) );
+            if( resourceCache[ url ] ) {
+               deferred.resolve( object.deepClone( resourceCache[ url ] ) );
             }
-            else if( misses[ url ] ) {
-               deferred.reject( misses[ url ] );
+            else if( resourceChacheMisses[ url ] ) {
+               deferred.reject( resourceChacheMisses[ url ] );
             }
             else {
                // Support for very old servers: undefined by default to infer type from response header.
@@ -12101,11 +12120,11 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
                   dataType: dataTypeGuess,
                   async: false,
                   success: function( data ) {
-                     cache[ url ] = object.deepClone( data );
+                     resourceCache[ url ] = object.deepClone( data );
                      deferred.resolve( data );
                   },
                   error: function( xhr, status, err ) {
-                     misses[ url ] = err;
+                     resourceChacheMisses[ url ] = err;
                      deferred.reject( err );
                   }
                } );
@@ -12243,6 +12262,23 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
          create: create,
          technology: 'angular'
       };
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function normalize( widgetName ) {
+      return widgetName.replace( /([a-zA-Z0-9])[-_]([a-zA-Z0-9])/g, function( $_, $1, $2 ) {
+         return $1 + $2.toUpperCase();
+      } ).replace( /^[A-Z]/, function( $_ ) {
+         return $_.toLowerCase();
+      } );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function inferControllerName( moduleName ) {
+      var upperCaseModuleName = moduleName.charAt( 0 ).toUpperCase() + moduleName.slice( 1 );
+      return upperCaseModuleName + 'Controller';
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
