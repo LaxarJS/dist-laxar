@@ -2405,8 +2405,9 @@ define( 'laxar/lib/event_bus/event_bus',[
  * http://laxarjs.org/license
  */
 define( 'laxar/lib/utilities/path',[
+   'require',
    './assert'
-], function( assert ) {
+], function( require, assert ) {
    'use strict';
 
    var PATH_SEPARATOR = '/';
@@ -2518,6 +2519,35 @@ define( 'laxar/lib/utilities/path',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   function resolveAssetPath( refWithScheme, defaultAssetDirectory, optionalDefaultScheme ) {
+      var info = extractScheme( refWithScheme, optionalDefaultScheme || 'amd' );
+      if( typeof schemeLoaders[ info.scheme ] !== 'function' ) {
+         throw new Error( 'Unknown schema type "' + info.scheme + '" in reference "' + refWithScheme + '".' );
+      }
+      return normalize( schemeLoaders[ info.scheme ]( info.ref, defaultAssetDirectory ) );
+   }
+
+   var schemeLoaders = {
+      local: function( ref, defaultAssetDirectory ) {
+         return join( defaultAssetDirectory, ref );
+      },
+      amd: function( ref ) {
+         return require.toUrl( ref );
+      }
+   };
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function extractScheme( ref, defaultScheme ) {
+      var parts = ref.split( ':' );
+      return {
+         scheme: parts.length === 2 ? parts[ 0 ] : defaultScheme,
+         ref: parts.length === 2 ? parts[ 1 ]: parts[ 0 ]
+      };
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    function normalizeFragments( fragments ) {
       return fragments.reduce( function( pathStack, fragment ) {
          fragment = fragment.replace( /^\/+|\/+$/g, '' );
@@ -2543,6 +2573,7 @@ define( 'laxar/lib/utilities/path',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    return {
+      resolveAssetPath: resolveAssetPath,
       join: join,
       normalize: normalize,
       relative: relative
@@ -3119,6 +3150,7 @@ define( 'laxar/lib/loaders/paths',[
       PRODUCT: require.toUrl( 'laxar-path-root' ),
       THEMES: require.toUrl( 'laxar-path-themes' ),
       LAYOUTS: require.toUrl( 'laxar-path-layouts' ),
+      CONTROLS: require.toUrl( 'laxar-path-controls' ),
       WIDGETS: require.toUrl( 'laxar-path-widgets' ),
       PAGES: require.toUrl( 'laxar-path-pages' ),
       FLOW_JSON: require.toUrl( 'laxar-path-flow' ),
@@ -4749,8 +4781,13 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
 
    function bootstrap( widgetModules ) {
       var dependencies = ( widgetModules || [] ).map( function( module ) {
-         controllerNames[ module.name ] = capitalize( module.name ) + 'Controller';
+         // for lookup, use a normalized module name that can also be derived from the widget.json name:
+         var moduleKey = normalize( module.name );
+         controllerNames[ moduleKey ] = capitalize( module.name ) + 'Controller';
+
+         // add an additional lookup entry for deprecated "my.category.MyWidget" style module names:
          supportPreviousNaming( module.name );
+
          return module.name;
       } );
 
@@ -4796,9 +4833,8 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function createController( config ) {
-         var widgetName = environment.specification.name;
-         var moduleName = widgetName.replace( /^./, function( _ ) { return _.toLowerCase(); } );
-         var controllerName = controllerNames[ moduleName ];
+         var moduleKey = normalize( environment.specification.name );
+         var controllerName = controllerNames[ moduleKey ];
 
          injections_ = {
             axContext: context,
@@ -4869,6 +4905,16 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
 
    function capitalize( _ ) {
       return _.replace( /^./, function( _ ) { return _.toUpperCase(); } );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function normalize( moduleName ) {
+      return moduleName.replace( /([a-zA-Z0-9])[-_]([a-zA-Z0-9])/g, function( $_, $1, $2 ) {
+         return $1 + $2.toUpperCase();
+      } ).replace( /^[A-Z]/, function( $_ ) {
+         return $_.toLowerCase();
+      } );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -5009,8 +5055,9 @@ define( 'laxar/lib/loaders/widget_loader',[
        * @return {Promise} a promise for a widget adapter, with an already instantiated controller
        */
       function load( widgetConfiguration, optionalOptions ) {
-         var widgetPath = widgetConfiguration.widget;
-         var widgetJsonPath = path.join( paths.WIDGETS, widgetPath, 'widget.json' );
+         var resolvedWidgetPath = path.resolveAssetPath( widgetConfiguration.widget, paths.WIDGETS, 'local' );
+         var widgetJsonPath = path.join( resolvedWidgetPath, 'widget.json' );
+
          var options = object.options( optionalOptions, {
             onBeforeControllerCreation: function() {}
          } );
@@ -5032,7 +5079,7 @@ define( 'laxar/lib/loaders/widget_loader',[
                var features =
                   featuresProvider.featuresForWidget( specification, widgetConfiguration, throwWidgetError );
                var anchorElement = document.createElement( 'DIV' );
-               anchorElement.className = camelCaseToDashed( specification.name );
+               anchorElement.className = normalizeClassName( specification.name );
                anchorElement.id = 'ax' + ID_SEPARATOR + widgetConfiguration.id;
                var widgetEventBus = createEventBusForWidget( eventBus, specification, widgetConfiguration );
 
@@ -5061,12 +5108,12 @@ define( 'laxar/lib/loaders/widget_loader',[
                      adapter.destroy();
                   },
                   applyViewChanges: adapterFactory.applyViewChanges || null,
-                  templatePromise: loadAssets( widgetPath, integration, specification )
+                  templatePromise: loadAssets( resolvedWidgetPath, integration, specification )
                };
 
             }, function( err ) {
                var message = 'Could not load spec for widget [0] from [1]: [2]';
-               log.error( message, widgetPath, widgetJsonPath, err );
+               log.error( message, widgetConfiguration.widget, widgetJsonPath, err );
             } );
       }
 
@@ -5076,7 +5123,7 @@ define( 'laxar/lib/loaders/widget_loader',[
        * Locates and loads the widget HTML template for this widget (if any) as well as any CSS stylesheets
        * used by this widget or its controls.
        *
-       * @param widgetReferencePath
+       * @param widgetPath
        *    The path suffix used to look up the widget, as given in the instance configuration.
        * @param integration
        *    Details on the integration type and technology: Activities do not require assets.
@@ -5087,8 +5134,7 @@ define( 'laxar/lib/loaders/widget_loader',[
        *    A promise that will be resolved with the contents of any HTML template for this widget, or with
        *    `null` if there is no template (for example, if this is an activity).
        */
-      function loadAssets( widgetReferencePath, integration, widgetSpecification ) {
-
+      function loadAssets( widgetPath, integration, widgetSpecification ) {
          return integration.type === TYPE_ACTIVITY ? q.when( null ) : resolve().then( function( urls ) {
             urls.cssFileUrls.forEach( function( url ) { cssLoader.load( url ); } );
             return urls.templateUrl ? fileResourceProvider.provide( urls.templateUrl ) : null;
@@ -5097,39 +5143,46 @@ define( 'laxar/lib/loaders/widget_loader',[
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          function resolve() {
-            var technicalName = widgetReferencePath.split( '/' ).pop();
-            var widgetPath = path.join( paths.WIDGETS, widgetReferencePath );
-            var htmlFile = technicalName + '.html';
-            var cssFile = path.join( 'css/', technicalName + '.css' );
+            var specifiedName = widgetSpecification.name;
+            var specifiedHtmlFile = specifiedName + '.html';
+            var specifiedCssFile = path.join( 'css/', specifiedName + '.css' );
+            var technicalName = widgetPath.split( '/' ).pop();
+            var technicalHtmlFile = technicalName + '.html';
+            var technicalCssFile = path.join( 'css/', technicalName + '.css' );
 
             var promises = [];
             promises.push( themeManager.urlProvider(
                path.join( widgetPath, '[theme]' ),
-               path.join( paths.THEMES, '[theme]', 'widgets', widgetReferencePath )
-            ).provide( [ htmlFile, cssFile ] ) );
+               path.join( paths.THEMES, '[theme]', 'widgets', widgetPath )
+            ).provide( [
+               specifiedHtmlFile,
+               specifiedCssFile,
+               technicalHtmlFile,
+               technicalCssFile
+            ] ) );
 
             promises = promises.concat( ( widgetSpecification.controls || [] )
                .map( function( controlReference ) {
                   // By appending a path now and .json afterwards, trick RequireJS into generating the
                   // correct descriptor path when loading from a 'package'.
-                  var controlLocation = path.normalize( require.toUrl( path.join( controlReference, 'control' ) ) );
-                  var descriptorUrl = controlLocation + '.json';
-                  return fileResourceProvider.provide( descriptorUrl ).then( function( descriptor ) {
-                     // LaxarJS 1.x style control (name determined from descriptor):
-                     var name = camelCaseToDashed( descriptor.name );
-                     return themeManager.urlProvider(
-                        path.join( controlLocation.replace( /\/control$/, '' ), '[theme]' ),
-                        path.join( paths.THEMES, '[theme]', 'controls', name )
-                     ).provide( [ path.join( 'css/',  name + '.css' ) ] );
-                  },
-                  function() {
-                     // LaxarJS 0.x style controls (no descriptor, uses AMD path as name):
-                     var name = controlReference.split( '/' ).pop();
-                     return themeManager.urlProvider(
-                        path.join( require.toUrl( controlReference ), '[theme]' ),
-                        path.join( paths.THEMES, '[theme]', controlReference )
-                     ).provide( [ path.join( 'css/', name + '.css' ) ] );
-                  } );
+                  var resolvedControlPath = path.resolveAssetPath( controlReference, paths.CONTROLS );
+                  var descriptorUrl = path.join( resolvedControlPath, 'control.json' );
+                  return fileResourceProvider.provide( descriptorUrl )
+                     .then( function( descriptor ) {
+                        // LaxarJS 1.x style control (name determined from descriptor):
+                        var name = descriptor.name;
+                        return themeManager.urlProvider(
+                           path.join( resolvedControlPath, '[theme]' ),
+                           path.join( paths.THEMES, '[theme]', 'controls', name )
+                        ).provide( [ path.join( 'css/',  name + '.css' ) ] );
+                     }, function() {
+                        // LaxarJS 0.x style controls (no descriptor, uses AMD path as name):
+                        var name = controlReference.split( '/' ).pop();
+                        return themeManager.urlProvider(
+                           path.join( resolvedControlPath, '[theme]' ),
+                           path.join( paths.THEMES, '[theme]', controlReference )
+                        ).provide( [ path.join( 'css/', name + '.css' ) ] );
+                     } );
                } ) );
 
             return q.all( promises )
@@ -5137,11 +5190,11 @@ define( 'laxar/lib/loaders/widget_loader',[
                   var widgetUrls = results[ 0 ];
                   var cssUrls = results.slice( 1 )
                      .map( function( urls ) { return urls[ 0 ]; } )
-                     .concat( widgetUrls.slice( 1 ) )
+                     .concat( ( widgetUrls[ 1 ] || widgetUrls[ 3 ] ) )
                      .filter( function( url ) { return !!url; } );
 
                   return {
-                     templateUrl: widgetUrls[ 0 ] || '',
+                     templateUrl: widgetUrls[ 0 ] || widgetUrls[ 2 ] || '',
                      cssFileUrls: cssUrls
                   };
                } );
@@ -5151,10 +5204,13 @@ define( 'laxar/lib/loaders/widget_loader',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function camelCaseToDashed( str ) {
-      return str.replace( /[A-Z]/g, function( character, offset ) {
-         return ( offset > 0 ? '-' : '' ) + character.toLowerCase();
-      } );
+   function normalizeClassName( str ) {
+      return str
+         .replace( /([a-z0-9])([A-Z])/g, function( $_, $0, $1 ) {
+            return $0 + '-' + $1;
+         } )
+         .replace( /_/g, '-' )
+         .toLowerCase();
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -11890,6 +11946,8 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
    'use strict';
 
    var TICK_CONSTANT = 101;
+   var resourceCache = {};
+   var resourceChacheMisses = {};
 
    log.setLogThreshold( log.level.TRACE );
 
@@ -11920,8 +11978,20 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
    /**
     * Creates a test bed for widget controller tests.
     *
-    * @param {String} widgetPathOrModule
-    *    The path that can be used to load this widget into a page (e.g. 'ax-some-widget', 'laxar/my_widget').
+    * For historical reasons, a variety of invocations has to be supported:
+    *
+    * - preferred: directly pass the contents of the widget.json descriptor
+    *              this is the only clean way, which incidentally also works for AMD-installable widgets,
+    *              as they cannot rely on a category folder
+    * - supported: pass the file reference for this widget:
+    *              this is the path to the widget folder, relative to the RequireJS path laxar-path-widgets
+    * - deprecated: pass the old-style AngularJS module name (widget.category.SomeWidget)
+    *               from which the path is then guessed.
+    *
+    * @param {String} descriptorPathOrModule
+    *    The contents of the widget.json descriptor.
+    *    Alternatively (not recommended), the file reference to load this widget into a page
+    *    (e.g. 'ax-some-widget', 'laxar/my_widget').
     *    For backwards-compatibility, an old-style widget module name starting with 'widgets.' may be given
     *    instead (See LaxarJS/laxar#153).
     * @param {String} [controllerName]
@@ -11937,28 +12007,35 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
     *    @property {Function} controller   The controller
     *    @property {Object}   widgetMock   The widget specification @deprecated
     */
-   function createControllerTestBed( widgetPathOrModule, controllerName ) {
+   function createControllerTestBed( descriptorPathOrModule, controllerName ) {
       jasmine.Clock.useMock();
       mockDebounce();
 
+      var descriptor;
       var widgetPath;
       var moduleName;
       var fullControllerName;
-      if( widgetPathOrModule.indexOf( 'widgets.' ) === 0 ) {
+      if( descriptorPathOrModule.name ) {
+         // preferred call style (pass descriptor):
+         descriptor = descriptorPathOrModule;
+         moduleName = normalize( descriptor.name );
+         widgetPath = '/' + descriptor.name;
+         resourceCache[ widgetPath + '/widget.json' ] = descriptor;
+         fullControllerName = inferControllerName( moduleName );
+      }
+      else if( descriptorPathOrModule.indexOf( 'widgets.' ) === 0 ) {
          // old style module name (pre LaxarJS/laxar#153)
-         moduleName = widgetPathOrModule;
+         moduleName = descriptorPathOrModule;
          widgetPath = moduleName.replace( /^widgets\./, '' ).replace( /\./g, '/' );
          fullControllerName = moduleName + '.' + ( controllerName || 'Controller' );
       }
       else {
-         widgetPath = widgetPathOrModule;
-         var widget = widgetPath.replace( /(.*[/])?([^/]*)/, '$2' );
+         // early 1.0.x style: use (local) widget reference
+         widgetPath = descriptorPathOrModule;
          // derive the module from the directory name
-         moduleName = widget.replace( /(.)[_-]([a-z])/g, function( _, $1, $2 ) {
-            return $1 + $2.toUpperCase();
-         } );
-         var upperCaseModuleName = moduleName.charAt( 0 ).toUpperCase() + moduleName.slice( 1 );
-         fullControllerName = upperCaseModuleName + 'Controller';
+         var widgetName = widgetPath.replace( /(.*[/])?([^/]*)/, '$2' );
+         moduleName = normalize( widgetName );
+         fullControllerName = inferControllerName( moduleName );
       }
 
       var testBed = {
@@ -12266,18 +12343,16 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   var cache = {};
-   var misses = {};
    function getWidgetLoader( testBed ) {
       var q = portalMocks.mockQ();
       var fileResourceProvider = {
          provide: function( url ) {
             var deferred = q.defer();
-            if( cache[ url ] ) {
-               deferred.resolve( object.deepClone( cache[ url ] ) );
+            if( resourceCache[ url ] ) {
+               deferred.resolve( object.deepClone( resourceCache[ url ] ) );
             }
-            else if( misses[ url ] ) {
-               deferred.reject( misses[ url ] );
+            else if( resourceChacheMisses[ url ] ) {
+               deferred.reject( resourceChacheMisses[ url ] );
             }
             else {
                // Support for very old servers: undefined by default to infer type from response header.
@@ -12291,11 +12366,11 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
                   dataType: dataTypeGuess,
                   async: false,
                   success: function( data ) {
-                     cache[ url ] = object.deepClone( data );
+                     resourceCache[ url ] = object.deepClone( data );
                      deferred.resolve( data );
                   },
                   error: function( xhr, status, err ) {
-                     misses[ url ] = err;
+                     resourceChacheMisses[ url ] = err;
                      deferred.reject( err );
                   }
                } );
@@ -12433,6 +12508,23 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
          create: create,
          technology: 'angular'
       };
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function normalize( widgetName ) {
+      return widgetName.replace( /([a-zA-Z0-9])[-_]([a-zA-Z0-9])/g, function( $_, $1, $2 ) {
+         return $1 + $2.toUpperCase();
+      } ).replace( /^[A-Z]/, function( $_ ) {
+         return $_.toLowerCase();
+      } );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function inferControllerName( moduleName ) {
+      var upperCaseModuleName = moduleName.charAt( 0 ).toUpperCase() + moduleName.slice( 1 );
+      return upperCaseModuleName + 'Controller';
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
