@@ -1,5 +1,5 @@
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -95,7 +95,7 @@ define( 'laxar/lib/logging/console_channel',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -302,7 +302,7 @@ define( 'laxar/lib/utilities/assert',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -624,7 +624,7 @@ define( 'laxar/lib/utilities/object',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -686,7 +686,7 @@ define( 'laxar/lib/utilities/configuration',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1100,7 +1100,7 @@ define( 'laxar/lib/logging/log',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1185,7 +1185,7 @@ define( 'laxar/lib/directives/id/id',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1241,7 +1241,7 @@ define( 'laxar/lib/directives/layout/layout',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1568,7 +1568,7 @@ define( 'laxar/lib/utilities/string',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1651,7 +1651,7 @@ define( 'laxar/lib/directives/widget_area/widget_area',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1672,7 +1672,7 @@ define( 'laxar/lib/directives/directives',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -2400,7 +2400,7 @@ define( 'laxar/lib/event_bus/event_bus',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -2582,7 +2582,7 @@ define( 'laxar/lib/utilities/path',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -2899,7 +2899,7 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3137,7 +3137,7 @@ define( 'laxar/lib/i18n/i18n',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4252,7 +4252,7 @@ define( 'laxar/lib/loaders/paths',[
 }).call(this);
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4395,7 +4395,7 @@ define( 'laxar/lib/json/schema',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4510,7 +4510,7 @@ define( 'laxar/lib/json/validator',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4665,10 +4665,11 @@ define( 'laxar/lib/widget_adapters/plain_adapter',[], function() {
     * @param {String}      environment.context.widget.id
     * @param {String}      environment.context.widget.path
     * @param {Object}      environment.specification
+    * @param {Object}      services
     *
     * @return {Object}
     */
-   function create( environment ) {
+   function create( environment, services ) {
 
       var exports = {
          createController: createController,
@@ -4732,11 +4733,15 @@ define( 'laxar/lib/widget_adapters/plain_adapter',[], function() {
                   return map;
                }
 
-               if( !( name in map ) ) {
-                  throw new Error( 'Unknown dependency "' + name + '".' );
+               if( name in map ) {
+                  return map[ name ];
                }
 
-               return map[ name ];
+               if( name in services ) {
+                  return services[ name ];
+               }
+
+               throw new Error( 'Unknown dependency "' + name + '".' );
             }
          };
       }
@@ -4759,7 +4764,7 @@ define( 'laxar/lib/widget_adapters/plain_adapter',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4814,10 +4819,13 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
     * @param {String}      environment.context.widget.id
     * @param {String}      environment.context.widget.path
     * @param {Object}      environment.specification
+    * @param {Object}      services
     *
     * @return {Object}
     */
-   function create( environment ) {
+   function create( environment, services ) {
+
+      // services are not relevant for now, since all LaxarJS services are already available via AngularJS DI.
 
       var exports = {
          createController: createController,
@@ -4838,7 +4846,8 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
 
          injections_ = {
             axContext: context,
-            axEventBus: context.eventBus
+            axEventBus: context.eventBus,
+            axFeatures: context.features || {}
          };
          Object.defineProperty( injections_, '$scope', {
             enumerable: true,
@@ -4993,7 +5002,7 @@ define( 'laxar/lib/widget_adapters/adapters',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5019,16 +5028,20 @@ define( 'laxar/lib/loaders/widget_loader',[
    var INVALID_ID_MATCHER = /[^A-Za-z0-9_\.-]/g;
 
    /**
-    * @typedef {{then: Function}} Promise
+    * @param {Q} q
+    *    a promise library
+    * @param {Object} services
+    *    all services available to the loader an widgets
     *
-    * @param q
-    * @param fileResourceProvider
-    * @param themeManager
-    * @param cssLoader
-    * @param eventBus
     * @returns {{load: Function}}
     */
-   function create( q, fileResourceProvider, themeManager, cssLoader, eventBus ) {
+   function create( q, services ) {
+
+      var fileResourceProvider = services.axFileResourceProvider;
+      var themeManager = services.axThemeManager;
+      var cssLoader = services.axCssLoader;
+      var eventBus = services.axGlobalEventBus;
+
 
       return {
          load: load
@@ -5097,7 +5110,7 @@ define( 'laxar/lib/loaders/widget_loader',[
                      }
                   },
                   specification: specification
-               } );
+               }, services );
                adapter.createController( options );
 
                return {
@@ -5291,7 +5304,7 @@ define( 'laxar/lib/loaders/widget_loader',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5352,7 +5365,7 @@ define( 'laxar/lib/utilities/fn',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5625,7 +5638,7 @@ define( 'laxar/lib/utilities/storage',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5679,7 +5692,7 @@ define( 'laxar/lib/runtime/runtime',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5745,7 +5758,7 @@ define( 'laxar/lib/loaders/layout_loader',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5895,7 +5908,7 @@ define( 'laxar/lib/runtime/theme_manager',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -6662,7 +6675,7 @@ define( 'laxar/lib/runtime/runtime_services',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -6874,7 +6887,7 @@ define("json!laxar/static/schemas/flow.json", function(){ return {
 ;});
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7410,7 +7423,7 @@ define("json!laxar/static/schemas/page.json", function(){ return {
 ;});
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7999,7 +8012,7 @@ define( 'laxar/lib/runtime/layout_widget_adapter',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8179,7 +8192,7 @@ define( 'laxar/lib/runtime/area_helper',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8263,7 +8276,7 @@ define( 'laxar/lib/runtime/locale_event_manager',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8427,7 +8440,7 @@ define( 'laxar/lib/runtime/visibility_event_manager',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8439,13 +8452,14 @@ define( 'laxar/lib/runtime/page',[
    '../loaders/widget_loader',
    '../loaders/paths',
    './layout_widget_adapter',
+   './flow',
    './area_helper',
    './locale_event_manager',
    './visibility_event_manager'
-], function( ng, assert, layoutModule, pageLoader, widgetLoader, paths, layoutWidgetAdapter, createAreaHelper, createLocaleEventManager, createVisibilityEventManager ) {
+], function( ng, assert, layoutModule, pageLoader, widgetLoader, paths, layoutWidgetAdapter, flowModule, createAreaHelper, createLocaleEventManager, createVisibilityEventManager ) {
    'use strict';
 
-   var module = ng.module( 'axPage', [ layoutModule.name, layoutWidgetAdapter.name ] );
+   var module = ng.module( 'axPage', [ layoutModule.name, layoutWidgetAdapter.name, flowModule.name ] );
 
    /** Delay between sending didLifeCycle and attaching widget templates. */
    var WIDGET_ATTACH_DELAY_MS = 5;
@@ -8478,12 +8492,38 @@ define( 'laxar/lib/runtime/page',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+   var availableServices = {};
+   ( function() {
+      var serviceNames = [
+         'axFlowService', 'axHeartbeat', 'axTimestamp', 'axGlobalEventBus', 'axConfiguration', 'axI18n',
+         'axFileResourceProvider', 'axThemeManager', 'axLayoutLoader', 'axCssLoader', 'axVisibilityService'
+      ];
+
+      module.run( serviceNames.concat( function() {
+         var injections = [].slice.call( arguments );
+         serviceNames.forEach( function( name, index ) {
+            availableServices[ name ] = injections[ index ];
+         } );
+      } ) );
+
+   } )();
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    /**
     * Manages widget adapters and their DOM for the current page
     */
    module.controller( 'AxPageController', [
-      '$scope', '$q', '$timeout', 'axPageService', 'axVisibilityService', 'axConfiguration', 'axCssLoader', 'axLayoutLoader', 'axGlobalEventBus', 'axFileResourceProvider', 'axThemeManager',
-      function( $scope, $q, $timeout , pageService, visibilityService, configuration, cssLoader, layoutLoader, eventBus, fileResourceProvider, themeManager ) {
+      '$scope', '$q', '$timeout', 'axPageService',
+      function( $scope, $q, $timeout, pageService ) {
+
+         var visibilityService = availableServices.axVisibilityService;
+         var configuration = availableServices.axConfiguration;
+         var layoutLoader = availableServices.axLayoutLoader;
+         var eventBus = availableServices.axGlobalEventBus;
+         var fileResourceProvider = availableServices.axFileResourceProvider;
+         var themeManager = availableServices.axThemeManager;
+
 
          var self = this;
          var pageLoader_ = pageLoader.create( $q, null, paths.PAGES, fileResourceProvider );
@@ -8543,7 +8583,7 @@ define( 'laxar/lib/runtime/page',[
           *    events have been sent.
           */
          function setupPage( pageName ) {
-            var widgetLoader_ = widgetLoader.create( $q, fileResourceProvider, themeManager, cssLoader, eventBus );
+            var widgetLoader_ = widgetLoader.create( $q, availableServices );
 
             var layoutDeferred = $q.defer();
             var pagePromise = pageLoader_.loadPage( pageName )
@@ -8703,7 +8743,7 @@ define( 'laxar/lib/runtime/page',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8916,7 +8956,7 @@ define( 'laxar/lib/profiling/output',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -9156,7 +9196,7 @@ define( 'laxar/lib/profiling/profiling',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -9185,7 +9225,7 @@ define( 'laxar/lib/runtime/runtime_dependencies',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -11302,7 +11342,7 @@ return Q;
 });
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -11549,7 +11589,7 @@ define( 'laxar/lib/testing/http_mock',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -11640,7 +11680,7 @@ define( 'laxar/lib/testing/jquery_mock',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -11785,7 +11825,7 @@ define( 'laxar/lib/testing/matchers',[], function() {
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -11926,7 +11966,7 @@ define( 'laxar/lib/testing/portal_mocks',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -12391,7 +12431,12 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
       adapters.addAdapters( [ portalMocksAngularAdapter( testBed ) ] );
 
       return widgetLoaderModule
-         .create( q, fileResourceProvider, themeManager.create( fileResourceProvider, q, 'default' ), { load: function() {} }, testBed.eventBusMock );
+         .create( q, {
+            axFileResourceProvider: fileResourceProvider,
+            axThemeManager: themeManager.create( fileResourceProvider, q, 'default' ),
+            axCssLoader: { load: function() {} },
+            axGlobalEventBus: testBed.eventBusMock
+         } );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12546,7 +12591,7 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -12648,7 +12693,7 @@ define( 'laxar/lib/testing/run_spec',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -12676,7 +12721,7 @@ define( 'laxar/lib/testing/testing',[
 } );
 
 /**
- * Copyright 2014 aixigo AG
+ * Copyright 2015 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
