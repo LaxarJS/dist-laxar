@@ -12070,6 +12070,8 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
          moduleName = normalize( descriptor.name );
          widgetPath = '/' + descriptor.name;
          resourceCache[ widgetPath + '/widget.json' ] = descriptor;
+         resourceChacheMisses[ widgetPath + '/default.theme/' + descriptor.name + '.html' ] = true;
+         resourceChacheMisses[ widgetPath + '/default.theme/css/' + descriptor.name + '.css' ] = true;
          fullControllerName = inferControllerName( moduleName );
       }
       else if( descriptorPathOrModule.indexOf( 'widgets.' ) === 0 ) {
