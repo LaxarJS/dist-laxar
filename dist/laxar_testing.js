@@ -5164,9 +5164,11 @@ define( 'laxar/lib/loaders/widget_loader',[
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          function resolve() {
+            // the name from the widget.json
             var specifiedName = widgetSpecification.name;
             var specifiedHtmlFile = specifiedName + '.html';
             var specifiedCssFile = path.join( 'css/', specifiedName + '.css' );
+            // for backward compatibility: the name inferred from the reference
             var technicalName = widgetPath.split( '/' ).pop();
             var technicalHtmlFile = technicalName + '.html';
             var technicalCssFile = path.join( 'css/', technicalName + '.css' );
@@ -5175,7 +5177,8 @@ define( 'laxar/lib/loaders/widget_loader',[
             var promises = [];
             promises.push( themeManager.urlProvider(
                path.join( widgetPath, '[theme]' ),
-               path.join( paths.THEMES, '[theme]', 'widgets', refPath )
+               path.join( paths.THEMES, '[theme]', 'widgets', specifiedName ),
+               [ path.join( paths.THEMES, '[theme]', 'widgets', refPath ) ]
             ).provide( [
                specifiedHtmlFile,
                specifiedCssFile,
@@ -5677,7 +5680,7 @@ define( 'laxar/lib/runtime/runtime',[
    // Initialize the theme manager
    module.run( [ 'axCssLoader', 'axThemeManager', function( CssLoader, themeManager ) {
       themeManager
-         .urlProvider( path.join( paths.THEMES, '[theme]' ), null, paths.DEFAULT_THEME )
+         .urlProvider( path.join( paths.THEMES, '[theme]' ), null, [ paths.DEFAULT_THEME ] )
          .provide( [ 'css/theme.css' ] )
          .then( function( files ) {
             CssLoader.load( files[0] );
@@ -5824,22 +5827,22 @@ define( 'laxar/lib/runtime/theme_manager',[
     *    a path pattern for search within the artifact directory itself, based on the current theme
     * @param {String} [themePathPattern]
     *    a path pattern for search within the current theme
-    * @param {String} [fallbackPathPattern]
-    *    a fallback path, used if all else fails.
-    *    Usually without placeholders, e.g. for loading the default theme itself.
+    * @param {String[]} [fallbackPathPatterns]
+    *    fallback paths, used if all else fails.
+    *    Possibly without placeholders, e.g. for loading the default theme itself.
     *
     * @returns {{provide: Function}}
     *    an object with a provide method
     */
-   ThemeManager.prototype.urlProvider = function( artifactPathPattern, themePathPattern, fallbackPathPattern ) {
+   ThemeManager.prototype.urlProvider = function( artifactPathPattern, themePathPattern, fallbackPathPatterns ) {
       var self = this;
 
       return {
          provide: function( fileNames ) {
             var searchPrefixes = [];
 
+            var themeDirectory = self.theme_ + '.theme';
             if( self.theme_ && self.theme_ !== 'default' ) {
-               var themeDirectory = self.theme_ + '.theme';
                if( artifactPathPattern ) {
                   // highest precedence: artifacts with (multiple) embedded theme styles:
                   searchPrefixes.push( artifactPathPattern.replace( '[theme]', themeDirectory ) );
@@ -5850,20 +5853,22 @@ define( 'laxar/lib/runtime/theme_manager',[
                }
             }
 
+            ( fallbackPathPatterns || []  ).forEach( function( pattern ) {
+               // additional paths, usually for backward compatibility
+               if( self.theme_ !== 'default' || artifactPathPattern.indexOf( '[theme]' ) === -1 ) {
+                  searchPrefixes.push(pattern.replace('[theme]', themeDirectory));
+               }
+            } );
+
             if( artifactPathPattern ) {
                // fall back to default theme provided by the artifact
                searchPrefixes.push( artifactPathPattern.replace( '[theme]', 'default.theme' ) );
             }
 
-            if( fallbackPathPattern ) {
-               // mostly to load the default-theme itself from any location
-               searchPrefixes.push( fallbackPathPattern );
-            }
-
             var promises = [];
-            for( var i = 0; i < fileNames.length; ++i ) {
-               promises.push( findExistingPath( self, searchPrefixes, fileNames[ i ] ) );
-            }
+            fileNames.forEach( function( fileName ) {
+               promises.push( findExistingPath( self, searchPrefixes, fileName ) );
+            } );
 
             return self.q_.all( promises )
                .then( function( results ) {
@@ -5887,7 +5892,6 @@ define( 'laxar/lib/runtime/theme_manager',[
             if( available ) {
                return self.q_.when( searchPrefixes[0] );
             }
-
             return findExistingPath( self, searchPrefixes.slice( 1 ), fileName );
          } );
    }
