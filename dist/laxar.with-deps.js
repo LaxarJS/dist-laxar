@@ -5855,8 +5855,8 @@ define( 'laxar/lib/runtime/theme_manager',[
 
             ( fallbackPathPatterns || []  ).forEach( function( pattern ) {
                // additional paths, usually for backward compatibility
-               if( self.theme_ !== 'default' || artifactPathPattern.indexOf( '[theme]' ) === -1 ) {
-                  searchPrefixes.push(pattern.replace('[theme]', themeDirectory));
+               if( self.theme_ !== 'default' || pattern.indexOf( '[theme]' ) === -1 ) {
+                  searchPrefixes.push( pattern.replace( '[theme]', themeDirectory ) );
                }
             } );
 
