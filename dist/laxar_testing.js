@@ -12171,10 +12171,17 @@ define( 'laxar/lib/testing/portal_mocks',[
       mockControls = mockControls || {};
       return {
          load: jasmine.createSpy( 'axControls.load' ).andCallFake( function( controlRef ) {
-            var mockDescriptor = mockControls[ controlRef ].descriptor;
-            return qMock.when( mockDescriptor ).then( function() {
-               return mockDescriptor;
-            } );
+            if( !mockControls[ controlRef ] ) {
+               mockControls[ controlRef ] = {
+                  descriptor: {
+                     name: controlRef.split( '/' ).pop(),
+                     integration: { technology: 'plain' }
+                  },
+                  path: require.toUrl( controlRef ),
+                  module: {}
+               };
+            }
+            return qMock.when( mockControls[ controlRef ].descriptor );
          } ),
          descriptor: jasmine.createSpy( 'axControls.descriptor' ).andCallFake( function( controlRef ) {
             return mockControls[ controlRef ].descriptor;
