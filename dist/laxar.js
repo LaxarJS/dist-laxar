@@ -4272,8 +4272,8 @@ define( 'laxar/lib/utilities/fn',[], function() {
 
    var api = {
       debounce: debounce,
-      _nowMilliseconds: nowMilliseconds,
-      _setTimeout: setTimeout
+      _nowMilliseconds: _nowMilliseconds,
+      _setTimeout: _setTimeout
    };
 
    return api;
@@ -4362,14 +4362,14 @@ define( 'laxar/lib/utilities/fn',[], function() {
     *   the current time in milliseconds (`Date.now()`).
     *   Ovewrride this from tests for reproducible results.
     */
-   function nowMilliseconds() {
+   function _nowMilliseconds() {
      return Date.now();
    }
 
    /**
     * By default, invoke window.setTimeout with the given arguments.
     */
-   function setTimout() {
+   function _setTimeout() {
      return window.setTimeout.apply( window, arguments );
    }
 
