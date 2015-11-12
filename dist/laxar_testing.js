@@ -4112,6 +4112,8 @@ define( 'laxar/lib/loaders/paths',[
             o.schema = o.env.resolveRef(null, o.schema);
             if (o.schema) o.schema = o.schema[0];
           }
+
+          if (!o.schema.type) o.schema.type = 'object';
         }
 
         if (o.schema && o.schema.type) {
@@ -5362,49 +5364,108 @@ define( 'laxar/lib/loaders/widget_loader',[
 define( 'laxar/lib/utilities/fn',[], function() {
    'use strict';
 
-   return {
+   var api = {
+      debounce: debounce,
+      _nowMilliseconds: nowMilliseconds,
+      _setTimeout: setTimeout
+   };
 
-      /**
-       * [Underscore `debounce`](http://underscorejs.org/#debounce), but with LaxarJS offering mocking in
-       * tests. See [http://underscorejs.org/#debounce](http://underscorejs.org/#debounce) for detailed
-       * documentation.
-       *
-       * @param {Function} f
-       *    the function to return a debounced version of
-       * @param {Number} waitMs
-       *    milliseconds to debounce before invoking `f`
-       * @param {Boolean} immediate
-       *    if `true` `f` is invoked prior to start waiting `waitMs` milliseconds. Otherwise `f` is invoked
-       *    after the given debounce duration has passed. Default is `false`
-       *
-       * @return {Function}
-       *    the debounced function
-       */
-      debounce: function( f, waitMs, immediate ) {
-         var timeout, args, context, timestamp, result;
-         return function() {
-            context = this;
-            args = arguments;
-            timestamp = new Date();
-            var later = function() {
-               var last = (new Date()) - timestamp;
-               if( last < waitMs ) {
-                  timeout = setTimeout(later, waitMs - last);
-               }
-               else {
-                  timeout = null;
-                  if( !immediate ) {
-                     result = f.apply(context, args);
+   return api;
+
+   /**
+    * [Underscore `debounce`](http://underscorejs.org/#debounce) with the following modifications:
+    *  - automatically mocked when accessed through `laxar/laxar_testing`
+    *  - the generated function provides a `cancel()` method
+    *
+    * See [http://underscorejs.org/#debounce](http://underscorejs.org/#debounce) for detailed
+    * documentation on the original version.
+    *
+    * ### Note on testing:
+    *
+    * You can set `laxar.fn._nowMilliseconds` and `laxar.fn._setTimout` to mock-functions in order to
+    * help testing components that use `laxar.fn` or to test `laxar.fn` itself.
+    *
+    *
+    * @param {Function} f
+    *    the function to return a debounced version of
+    * @param {Number} waitMs
+    *    milliseconds to debounce before invoking `f`
+    * @param {Boolean} immediate
+    *    if `true` `f` is invoked prior to start waiting `waitMs` milliseconds. Otherwise `f` is invoked
+    *    after the given debounce duration has passed. Default is `false`
+    *
+    * @return {Function}
+    *    a debounced wrapper around the argument function f, with an additional method `cancel()`:
+    *    After `cancel()` has been called, f will not be invoked anymore, no matter how often the wrapper\
+    *    is called.
+    */
+   function debounce( f, waitMs, immediate ) {
+      var MARK = {};
+      var timeout, timestamp, result;
+      var canceled = false;
+
+      var debounced = function() {
+         var context = this;
+         var args = [].slice.call( arguments );
+         timestamp = api._nowMilliseconds();
+         var callNow = immediate && !timeout;
+
+         if( !timeout ) {
+            timeout = api._setTimeout( later, waitMs );
+         }
+         if( callNow && !canceled ) {
+            result = f.apply( context, args );
+         }
+
+         return result;
+
+         /**
+          * Check if the debounced function is ready for execution, and do so if it is.
+          * @param {Boolean} _force
+          *    This is only relevant when mocking `fn._setTimeout` to implement a force/flush for tests.
+          *    If the parameter is passed as `true`, no timing checks are performed prior to execution.
+          */
+         function later( _force ) {
+            var sinceLast = api._nowMilliseconds() - timestamp;
+            if( _force || sinceLast >= waitMs  ) {
+               timeout = null;
+               if( !immediate && !canceled ) {
+                  result = f.apply( context, args );
+                  if( !timeout ) {
+                     context = args = null;
                   }
                }
-            };
-            var callNow = immediate && !timeout;
-            if( !timeout ) { timeout = setTimeout(later, waitMs); }
-            if( callNow ) { result = f.apply(context, args); }
-            return result;
-         };
-      }
-   };
+               return;
+            }
+            timeout = api._setTimeout( later, waitMs - sinceLast );
+         }
+      };
+
+      debounced.cancel = function() {
+         canceled = true;
+      };
+
+      return debounced;
+   }
+
+   /**
+    * Get the current time in milliseconds.
+    * This API is intended to be used from tests only.
+    *
+    * @return {Number}
+    *   the current time in milliseconds (`Date.now()`).
+    *   Ovewrride this from tests for reproducible results.
+    */
+   function nowMilliseconds() {
+     return Date.now();
+   }
+
+   /**
+    * By default, invoke window.setTimeout with the given arguments.
+    */
+   function setTimout() {
+     return window.setTimeout.apply( window, arguments );
+   }
 
 } );
 
@@ -5688,12 +5749,18 @@ define( 'laxar/lib/utilities/storage',[
  */
 define( 'laxar/lib/runtime/runtime',[
    'angular',
+   '../utilities/assert',
    '../utilities/path',
    '../loaders/paths'
-], function( ng, path, paths ) {
+], function( ng, assert, path, paths ) {
    'use strict';
 
    var module = ng.module( 'axRuntime', [] );
+   var api = {
+      provideQ: function() {
+         assert.codeIsUnreachable( 'Cannot provide q before AngularJS modules have been set up.' );
+      }
+   };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5731,7 +5798,19 @@ define( 'laxar/lib/runtime/runtime',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   return module;
+   // Provide q as a tooling API to make sure all clients see the same mocked version during testing
+   module.run( [ '$q', function( $q ) {
+      api.provideQ = function() {
+         return $q;
+      };
+   } ] );
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   return {
+      module: module,
+      api: api
+   };
 
 } );
 
@@ -9517,7 +9596,7 @@ define( 'laxar/laxar',[
       if( optionalWidgetAdapters && Array.isArray( optionalWidgetAdapters ) ) {
          adapters.addAdapters( optionalWidgetAdapters );
       }
-      var dependencies = [ runtime.name, runtimeDependencies.name ];
+      var dependencies = [ runtime.module.name, runtimeDependencies.name ];
 
       Object.keys( widgetModules ).forEach( function( technology ) {
          var adapter = adapters.getFor( technology );
@@ -9580,7 +9659,10 @@ define( 'laxar/laxar',[
       log.addTag( 'INST', instanceId );
    }
 
-   // API to leverage tooling support. For example laxar-testing needs this for widget tests
+   // API to leverage tooling support.
+   // Not for direct use by widgets/activities!
+   //  - laxar-mocks needs this for widget tests
+   //  - laxar-patterns needs this to have the same (mocked) q version as the event bus
    var toolingApi = {
       controlsService: controlsService,
       eventBus: eventBus,
@@ -9589,7 +9671,10 @@ define( 'laxar/laxar',[
       themeManager: themeManager,
       widgetAdapters: adapters,
       widgetLoader: widgetLoader,
-      runtimeDependenciesModule: runtimeDependencies
+      runtimeDependenciesModule: runtimeDependencies,
+      provideQ: function() {
+         return runtime.api.provideQ();
+      }
    };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12489,32 +12574,42 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    /**
-    * Install an underscore-compatible debounce-mock function that supports the mock-clock.
+    * Install an `laxar.fn.debounce`-compatible debounce-mock function that supports the mock-clock.
     * The debounce-mock offers a `debounce.force` method, to process all debounced callbacks on demand.
-    * Additionally, there is a `debounce.waiting` array, to inspect waiting calls with their args.
+    * Additionally, there is a `debounce.waiting` array, to inspect waiting calls.
     */
    function mockDebounce() {
 
-      fn.debounce = debounceMock;
-      fn.debounce.force = forceAll;
-
+      fn.debounce.force = force;
       fn.debounce.waiting = [];
-      function forceAll() {
-         fn.debounce.waiting.forEach( function( waiting ) { waiting.force(); } );
-         fn.debounce.waiting = [];
-      }
+
+      fn._nowMilliseconds = function() {
+         return jasmine.Clock.installed.nowMillis;
+      };
+
+      fn._setTimeout = function( f, interval ) {
+         var timeout;
+         var run = function( force ) {
+            if( timeout === null ) { return; }
+            removeWaiting( timeout );
+            window.clearTimeout( timeout );
+            timeout = null;
+            f( force );
+         };
+
+         timeout = window.setTimeout( run, interval );
+         fn.debounce.waiting.push( run );
+         run.timeout = timeout;
+         return timeout;
+      };
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      function putWaiting( f, context, args, timeout ) {
-         var waiting = { force: null, args: args, timeout: timeout };
-         waiting.force = function() {
-            f.apply( context, args );
-            window.clearTimeout( timeout );
-            // force should be idempotent
-            waiting.force = function() {};
-         };
-         fn.debounce.waiting.push( waiting );
+      function force() {
+         fn.debounce.waiting.forEach( function( run ) {
+            run( true );
+         } );
+         fn.debounce.waiting.splice( 0 );
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12523,55 +12618,6 @@ define( 'laxar/lib/testing/portal_mocks_angular',[
          fn.debounce.waiting = fn.debounce.waiting.filter( function( waiting ) {
             return waiting.timeout !== timeout;
          } );
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      /**
-       * An underscore-compatible debounce that uses the jasmine mock clock.
-       *
-       * @param {Function} func
-       *    The function to debounce
-       * @param {Number} wait
-       *    How long to wait for calls to settle (in mock milliseconds) before calling through.
-       * @param immediate
-       *    `true` if the function should be called through immediately, but not after its last invocation
-       *
-       * @returns {Function}
-       *    a debounced proxy to `func`
-       */
-      function debounceMock( func, wait, immediate ) {
-         var timeout, result;
-         return function debounceMockProxy() {
-            var context = this;
-            var args = arguments;
-            var timestamp = jasmine.Clock.installed.nowMillis;
-            var later = function() {
-               var last = jasmine.Clock.installed.nowMillis - timestamp;
-               if( last < wait ) {
-                  timeout = window.setTimeout( later, wait - last );
-                  putWaiting( func, context, args, timeout );
-               }
-               else {
-                  removeWaiting( timeout );
-                  timeout = null;
-                  if( !immediate ) {
-                     result = func.apply(context, args);
-                  }
-               }
-            };
-
-            var callNow = immediate && !timeout;
-            if( !timeout ) {
-               timeout = window.setTimeout( later, wait );
-               putWaiting( func, context, args, timeout );
-            }
-            if( callNow ) {
-               if( timeout ) { removeWaiting( timeout ); }
-               result = func.apply( context, args );
-            }
-            return result;
-         };
       }
 
    }
@@ -12990,6 +13036,7 @@ define( 'laxar/laxar_testing',[
    function LaxarTesting() {
       this.testing = testing;
    }
+   ax._tooling.provideQ = function() { return testing.qMock; };
    LaxarTesting.prototype = ax;
 
    return new LaxarTesting();
