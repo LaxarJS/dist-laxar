@@ -5009,6 +5009,80 @@ define( 'laxar/lib/widget_adapters/adapters',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
+define( 'laxar/lib/tooling/pages',[
+   '../utilities/object'
+], function( object ) {
+   'use strict';
+
+   var currentPageInfo = {
+      pageReference: null,
+      pageDefinitions: {},
+      widgetDescriptors: {}
+   };
+
+   var listeners = [];
+
+   return {
+      /**
+       * Access the current page information.
+       * Everything is returned as a copy, so this object cannot be used to modify the host application.
+       *
+       * @return {Object}
+       *   the current page information, with the following properties:
+       *    - pageDefinitions {Object} the expanded page model for each page that was visited
+       *    - widgetDescriptors {Object} the widget descriptor for each widget that was referenced
+       *    - pageReference {String} the reference of the current page, for use against the page definitions
+       */
+      current: function() {
+         return object.deepClone( currentPageInfo );
+      },
+
+      /**
+       * Add a listener function to be notified whenever the page information changes.
+       *
+       * @param {Function}
+       *   The listener to add. Will be called with the current page information whenever that changes.
+       */
+      addListener: function( listener ) {
+         listeners.push( listener );
+      },
+
+      /**
+       * Remove a page information listener function.
+       *
+       * @param {Function}
+       *   The listener to remove
+       */
+      removeListener: function( listener ) {
+         listeners = listeners.filter( function( _ ) {
+            return _ !== listener;
+         } );
+      },
+
+      /** @private */
+      setWidgetDescriptor: function( ref, descriptor ) {
+         currentPageInfo.widgetDescriptors[ ref ] = descriptor;
+      },
+      /** @private */
+      setPageDefinition: function( ref, page ) {
+         currentPageInfo.pageDefinitions[ ref ] = page;
+      },
+      /** @private */
+      setCurrentPage: function( ref ) {
+         currentPageInfo.pageReference = ref;
+         listeners.forEach( function( listener ) {
+            listener( object.deepClone( currentPageInfo ) );
+         } );
+      }
+   };
+
+} );
+
+/**
+ * Copyright 2015 aixigo AG
+ * Released under the MIT license.
+ * http://laxarjs.org/license
+ */
 define( 'laxar/lib/loaders/widget_loader',[
    '../logging/log',
    '../utilities/path',
@@ -5017,8 +5091,9 @@ define( 'laxar/lib/loaders/widget_loader',[
    '../utilities/string',
    './paths',
    './features_provider',
-   '../widget_adapters/adapters'
-], function( log, path, assert, object, string, paths, featuresProvider, adapters ) {
+   '../widget_adapters/adapters',
+   '../tooling/pages'
+], function( log, path, assert, object, string, paths, featuresProvider, adapters, pageTooling ) {
    'use strict';
 
    var TYPE_WIDGET = 'widget';
@@ -5090,6 +5165,8 @@ define( 'laxar/lib/loaders/widget_loader',[
                   } );
             } )
             .then( function( specification ) {
+               pageTooling.setWidgetDescriptor( widgetConfiguration.widget, specification );
+
                var integration = object.options( specification.integration, DEFAULT_INTEGRATION );
                var type = integration.type;
                var technology = integration.technology;
@@ -7723,8 +7800,9 @@ define( 'laxar/lib/loaders/page_loader',[
    '../utilities/path',
    '../json/validator',
    './features_provider',
-   'json!../../static/schemas/page.json'
-], function( assert, object, string, path, jsonValidator, featuresProvider, pageSchema ) {
+   'json!../../static/schemas/page.json',
+   '../tooling/pages'
+], function( assert, object, string, path, jsonValidator, featuresProvider, pageSchema, pageTooling ) {
    'use strict';
 
    var SEGMENTS_MATCHER = /[_/-]./g;
@@ -7805,6 +7883,8 @@ define( 'laxar/lib/loaders/page_loader',[
             return postProcessWidgets( self, page );
          } )
          .then( function() {
+            pageTooling.setPageDefinition( pageName, page );
+
             return page;
          } );
    }
@@ -8744,8 +8824,9 @@ define( 'laxar/lib/runtime/page',[
    './flow',
    './area_helper',
    './locale_event_manager',
-   './visibility_event_manager'
-], function( ng, assert, layoutModule, pageLoader, widgetLoader, paths, layoutWidgetAdapter, flowModule, createAreaHelper, createLocaleEventManager, createVisibilityEventManager ) {
+   './visibility_event_manager',
+   '../tooling/pages'
+], function( ng, assert, layoutModule, pageLoader, widgetLoader, paths, layoutWidgetAdapter, flowModule, createAreaHelper, createLocaleEventManager, createVisibilityEventManager, pageTooling ) {
    'use strict';
 
    var module = ng.module( 'axPage', [ layoutModule.name, layoutWidgetAdapter.name, flowModule.name ] );
@@ -8900,6 +8981,7 @@ define( 'laxar/lib/runtime/page',[
                      } ) );
                   } )
                   .then( function( widgetAdapters ) {
+                     pageTooling.setCurrentPage( pageName );
                      widgetAdapters.forEach( function( adapter ) {
                         if( typeof adapter.applyViewChanges === 'function' &&
                             viewChangeApplyFunctions_.indexOf( adapter.applyViewChanges ) === -1 ) {
@@ -8929,7 +9011,7 @@ define( 'laxar/lib/runtime/page',[
                   } );
             }
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////////////////////////////////////////////
 
             function tearDownPage() {
                visibilityManager.unsubscribe();
@@ -9545,7 +9627,8 @@ define( 'laxar/laxar',[
    './lib/runtime/runtime_dependencies',
    './lib/runtime/controls_service',
    './lib/runtime/theme_manager',
-   './lib/widget_adapters/adapters'
+   './lib/widget_adapters/adapters',
+   './lib/tooling/pages'
 ], function(
    ng,
    log,
@@ -9565,7 +9648,8 @@ define( 'laxar/laxar',[
    runtimeDependencies,
    controlsService,
    themeManager,
-   adapters
+   adapters,
+   pageToolingApi
 ) {
    'use strict';
 
@@ -9659,6 +9743,8 @@ define( 'laxar/laxar',[
       log.addTag( 'INST', instanceId );
    }
 
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    // API to leverage tooling support.
    // Not for direct use by widgets/activities!
    //  - laxar-mocks needs this for widget tests
@@ -9674,7 +9760,10 @@ define( 'laxar/laxar',[
       runtimeDependenciesModule: runtimeDependencies,
       provideQ: function() {
          return runtime.api.provideQ();
-      }
+      },
+
+      // Prototype support for page inspection tools:
+      pages: pageToolingApi
    };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
