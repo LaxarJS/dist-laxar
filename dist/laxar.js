@@ -3916,40 +3916,73 @@ define( 'laxar/lib/widget_adapters/adapters',[
  * http://laxarjs.org/license
  */
 define( 'laxar/lib/tooling/pages',[
-   '../utilities/object'
-], function( object ) {
+   '../utilities/object',
+   '../logging/log'
+], function( object, log ) {
    'use strict';
+
+   var enabled = false;
 
    var currentPageInfo = {
       pageReference: null,
       pageDefinitions: {},
+      compositionDefinitions: {},
       widgetDescriptors: {}
    };
 
    var listeners = [];
 
    return {
+      /** Use to access the flattened page model, where compositions have been expanded. */
+      FLAT: 'FLAT',
+      /** Use to access the compact page/composition model, where compositions have not been expanded. */
+      COMPACT: 'COMPACT',
+
+      /** Start collecting page/composition data. */
+      enable: function() {
+         enabled = true;
+      },
+
+      /** Stop collecting page/composition data and clean up. */
+      disable: function() {
+         enabled = false;
+         currentPageInfo.pageReference = null;
+         currentPageInfo.widgetDescriptors = {};
+         cleanup();
+      },
+
       /**
        * Access the current page information.
-       * Everything is returned as a copy, so this object cannot be used to modify the host application.
+       * Everything is returned as a copy, sothis object cannot be used to modify the host application.
        *
        * @return {Object}
        *   the current page information, with the following properties:
-       *    - pageDefinitions {Object} the expanded page model for each page that was visited
-       *    - widgetDescriptors {Object} the widget descriptor for each widget that was referenced
-       *    - pageReference {String} the reference of the current page, for use against the page definitions
+       *    - `pageDefinitions` {Object}
+       *       both the original as well as the expanded/flattened page model for each available page
+       *    - `compositionDefinitions` {Object}
+       *       both the original as well as the expanded/flattened composition model for each composition of
+       *       any available page
+       *    - `widgetDescriptors` {Object}
+       *       the widget descriptor for each widget that was referenced
+       *    - `pageReference` {String}
+       *       the reference for the current page, to lookup page/composition definitions
        */
       current: function() {
+         if( !enabled ) {
+            log.warn( 'laxar page tooling: trying to access data, but collecting it was never enabled' );
+         }
          return object.deepClone( currentPageInfo );
       },
 
       /**
        * Add a listener function to be notified whenever the page information changes.
+       * As a side-effect, this also automatically enables collecting page/composition data.
        *
        * @param {Function}
        *   The listener to add. Will be called with the current page information whenever that changes.
        */
       addListener: function( listener ) {
+         enabled = true;
          listeners.push( listener );
       },
 
@@ -3965,22 +3998,59 @@ define( 'laxar/lib/tooling/pages',[
          } );
       },
 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
       /** @private */
       setWidgetDescriptor: function( ref, descriptor ) {
+         if( !enabled ) { return; }
          currentPageInfo.widgetDescriptors[ ref ] = descriptor;
       },
+
       /** @private */
-      setPageDefinition: function( ref, page ) {
-         currentPageInfo.pageDefinitions[ ref ] = page;
+      setPageDefinition: function( ref, page, type ) {
+         if( !enabled ) { return; }
+         var definitions = currentPageInfo.pageDefinitions;
+         definitions[ ref ] = definitions[ ref ] || {
+            FLAT: null,
+            COMPACT: null
+         };
+         definitions[ ref ][ type ] = object.deepClone( page );
       },
+
+      /** @private */
+      setCompositionDefinition: function( pageRef, compositionInstanceId, composition, type ) {
+         if( !enabled ) { return; }
+         var definitions = currentPageInfo.compositionDefinitions;
+         var definitionsByInstance = definitions[ pageRef ] = definitions[ pageRef ] || {};
+         definitionsByInstance[ compositionInstanceId ] = definitionsByInstance[ compositionInstanceId ] || {
+            FLAT: null,
+            COMPACT: null
+         };
+         definitionsByInstance[ compositionInstanceId ][ type ] = object.deepClone( composition );
+      },
+
       /** @private */
       setCurrentPage: function( ref ) {
+         if( !enabled ) { return; }
          currentPageInfo.pageReference = ref;
          listeners.forEach( function( listener ) {
             listener( object.deepClone( currentPageInfo ) );
          } );
+         cleanup();
       }
    };
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function cleanup() {
+      var currentRef = currentPageInfo.pageReference;
+      [ 'pageDefinitions', 'compositionDefinitions' ]
+         .forEach( function( collection ) {
+            Object.keys( currentPageInfo[ collection ] )
+               .filter( function( ref ) { return ref !== currentRef; } )
+               .forEach( function( ref ) { delete currentPageInfo[ collection ][ ref ]; } );
+         } );
+   }
 
 } );
 
@@ -6783,14 +6853,13 @@ define( 'laxar/lib/loaders/page_loader',[
             return processExtends( self, page, extensionChain );
          } )
          .then( function() {
-            return processCompositions( self, page, [], page );
+            return processCompositions( self, page, pageName );
          } )
          .then( function() {
-            return postProcessWidgets( self, page );
+            return checkForDuplicateWidgetIds( self, page );
          } )
          .then( function() {
-            pageTooling.setPageDefinition( pageName, page );
-
+            pageTooling.setPageDefinition( pageName, page, pageTooling.FLAT );
             return page;
          } );
    }
@@ -6840,69 +6909,93 @@ define( 'laxar/lib/loaders/page_loader',[
    //
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function processCompositions( self, page, compositionChain, topPage ) {
-      var promise = self.q_.when();
-      var seenCompositionIdCount = {};
+   function processCompositions( self, topPage, topPageName ) {
 
-      object.forEach( page.areas, function( widgets ) {
-         /*jshint loopfunc:true*/
-         for( var i = widgets.length - 1; i >= 0; --i ) {
-            ( function( widgetSpec, index ) {
-               if( has( widgetSpec, 'composition' ) ) {
+      return processNestedCompositions( topPage, null, [] );
+
+      function processNestedCompositions( page, instanceId, compositionChain ) {
+
+         var promise = self.q_.when();
+         var seenCompositionIdCount = {};
+
+         object.forEach( page.areas, function( widgets ) {
+            /*jshint loopfunc:true*/
+            for( var i = widgets.length - 1; i >= 0; --i ) {
+               ( function( widgetSpec, index ) {
                   if( widgetSpec.enabled === false ) {
                      return;
                   }
 
-                  var compositionName = widgetSpec.composition;
-                  if( compositionChain.indexOf( compositionName ) !== -1 ) {
-                     var message = 'Cycle in compositions detected: ' +
-                                   compositionChain.concat( [ compositionName ] ).join( ' -> ' );
-                     throwError( topPage, message );
+                  if( has( widgetSpec, 'widget' ) ) {
+                     if( !has( widgetSpec, 'id' ) ) {
+                        var widgetName = widgetSpec.widget.split( '/' ).pop();
+                        widgetSpec.id = nextId( self, widgetName.replace( SEGMENTS_MATCHER, dashToCamelcase ) );
+                     }
+                     return;
                   }
 
-                  if( !has( widgetSpec, 'id' ) ) {
-                     var escapedCompositionName =
-                        widgetSpec.composition.replace( SEGMENTS_MATCHER, dashToCamelcase );
-                     widgetSpec.id = nextId( self, escapedCompositionName );
-                  }
+                  if( has( widgetSpec, 'composition' ) ) {
+                     var compositionName = widgetSpec.composition;
+                     if( compositionChain.indexOf( compositionName ) !== -1 ) {
+                        var message = 'Cycle in compositions detected: ' +
+                                      compositionChain.concat( [ compositionName ] ).join( ' -> ' );
+                        throwError( topPage, message );
+                     }
 
-                  if( widgetSpec.id in seenCompositionIdCount ) {
-                     seenCompositionIdCount[ widgetSpec.id ]++;
-                  }
-                  else {
-                     seenCompositionIdCount[ widgetSpec.id ] = 1;
-                  }
+                     if( !has( widgetSpec, 'id' ) ) {
+                        var escapedCompositionName =
+                           widgetSpec.composition.replace( SEGMENTS_MATCHER, dashToCamelcase );
+                        widgetSpec.id = nextId( self, escapedCompositionName );
+                     }
 
-                  // Loading compositionUrl can be started asynchronously, but replacing the according widgets
-                  // in the page needs to take place in order. Otherwise the order of widgets could be messed up.
-                  promise = promise
-                     .then( function() {
-                        return load( self, assetUrl( self.baseUrl_, compositionName ) );
-                     } )
-                     .then( function( composition ) {
-                        return prefixCompositionIds( composition, widgetSpec );
-                     } )
-                     .then( function( composition ) {
-                        return processCompositionExpressions( composition, widgetSpec, throwError.bind( null, topPage ) );
-                     } )
-                     .then( function( composition ) {
-                        var chain = compositionChain.concat( compositionName );
-                        return processCompositions( self, composition, chain, topPage )
-                           .then( function() {
-                              return composition;
-                           } );
-                     } )
-                     .then( function( composition ) {
-                        mergeCompositionAreasWithPageAreas( composition, page, widgets, index );
-                     } );
-               }
-            } )( widgets[ i ], i );
+                     if( widgetSpec.id in seenCompositionIdCount ) {
+                        seenCompositionIdCount[ widgetSpec.id ]++;
+                     }
+                     else {
+                        seenCompositionIdCount[ widgetSpec.id ] = 1;
+                     }
+
+                     // Loading compositionUrl can be started asynchronously, but replacing the according widgets
+                     // in the page needs to take place in order. Otherwise the order of widgets could be messed up.
+                     promise = promise
+                        .then( function() {
+                           return load( self, assetUrl( self.baseUrl_, compositionName ) );
+                        } )
+                        .then( function( composition ) {
+                           return prefixCompositionIds( composition, widgetSpec );
+                        } )
+                        .then( function( composition ) {
+                           return processCompositionExpressions( composition, widgetSpec, throwError.bind( null, topPage ) );
+                        } )
+                        .then( function( composition ) {
+                           var chain = compositionChain.concat( compositionName );
+                           return processNestedCompositions( composition, widgetSpec.id, chain )
+                              .then( function() {
+                                 pageTooling.setCompositionDefinition( topPageName, widgetSpec.id, composition, pageTooling.FLAT );
+                                 return composition;
+                              } );
+                        } )
+                        .then( function( composition ) {
+                           mergeCompositionAreasWithPageAreas( composition, page, widgets, index );
+                        } );
+                  }
+               } )( widgets[ i ], i );
+            }
+         } );
+
+         // now that all IDs have been created, we can store a copy of the page prior to composition expansion
+         if( page === topPage ) {
+            pageTooling.setPageDefinition( topPageName, page, pageTooling.COMPACT );
          }
-      } );
+         else {
+            pageTooling.setCompositionDefinition( topPageName, instanceId, page, pageTooling.COMPACT );
+         }
 
-      checkForDuplicateCompositionIds( page, seenCompositionIdCount );
+         checkForDuplicateCompositionIds( page, seenCompositionIdCount );
 
-      return promise;
+         return promise;
+      }
+
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7045,7 +7138,7 @@ define( 'laxar/lib/loaders/page_loader',[
    //
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function postProcessWidgets( self, page ) {
+   function checkForDuplicateWidgetIds( self, page ) {
       var idCount = {};
 
       object.forEach( page.areas, function( widgetList, index ) {
@@ -7053,15 +7146,7 @@ define( 'laxar/lib/loaders/page_loader',[
             if( widgetSpec.enabled === false ) {
                return false;
             }
-
-            if( has( widgetSpec, 'widget' ) ) {
-               if( !has( widgetSpec, 'id' ) ) {
-                  var widgetName = widgetSpec.widget.split( '/' ).pop();
-                  widgetSpec.id = nextId( self, widgetName.replace( SEGMENTS_MATCHER, dashToCamelcase ) );
-               }
-
-               idCount[ widgetSpec.id ] = idCount[ widgetSpec.id ] ? idCount[ widgetSpec.id ] + 1 : 1;
-            }
+            idCount[ widgetSpec.id ] = idCount[ widgetSpec.id ] ? idCount[ widgetSpec.id ] + 1 : 1;
             return true;
          } );
       } );
