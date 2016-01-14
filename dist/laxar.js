@@ -1,5 +1,5 @@
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -95,7 +95,7 @@ define( 'laxar/lib/logging/console_channel',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -302,7 +302,7 @@ define( 'laxar/lib/utilities/assert',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -624,7 +624,7 @@ define( 'laxar/lib/utilities/object',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -686,7 +686,7 @@ define( 'laxar/lib/utilities/configuration',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1100,7 +1100,7 @@ define( 'laxar/lib/logging/log',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1185,7 +1185,7 @@ define( 'laxar/lib/directives/id/id',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1241,7 +1241,7 @@ define( 'laxar/lib/directives/layout/layout',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1568,7 +1568,7 @@ define( 'laxar/lib/utilities/string',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1651,7 +1651,7 @@ define( 'laxar/lib/directives/widget_area/widget_area',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -1672,7 +1672,7 @@ define( 'laxar/lib/directives/directives',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -2400,7 +2400,7 @@ define( 'laxar/lib/event_bus/event_bus',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -2583,7 +2583,7 @@ define( 'laxar/lib/utilities/path',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -2900,7 +2900,7 @@ define( 'laxar/lib/file_resource_provider/file_resource_provider',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3138,7 +3138,7 @@ define( 'laxar/lib/i18n/i18n',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3161,7 +3161,7 @@ define( 'laxar/lib/loaders/paths',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3304,7 +3304,7 @@ define( 'laxar/lib/json/schema',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3419,7 +3419,7 @@ define( 'laxar/lib/json/validator',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3542,7 +3542,7 @@ define( 'laxar/lib/loaders/features_provider',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3673,7 +3673,7 @@ define( 'laxar/lib/widget_adapters/plain_adapter',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3870,7 +3870,7 @@ define( 'laxar/lib/widget_adapters/angular_adapter',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -3911,7 +3911,7 @@ define( 'laxar/lib/widget_adapters/adapters',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4055,7 +4055,7 @@ define( 'laxar/lib/tooling/pages',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4403,7 +4403,7 @@ define( 'laxar/lib/loaders/widget_loader',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4523,7 +4523,7 @@ define( 'laxar/lib/utilities/fn',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4796,7 +4796,7 @@ define( 'laxar/lib/utilities/storage',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4868,7 +4868,7 @@ define( 'laxar/lib/runtime/runtime',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -4934,7 +4934,7 @@ define( 'laxar/lib/loaders/layout_loader',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5083,8 +5083,9 @@ define( 'laxar/lib/runtime/controls_service',[
    }
 
 } );
+
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -5235,7 +5236,7 @@ define( 'laxar/lib/runtime/theme_manager',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -6017,7 +6018,7 @@ define( 'laxar/lib/runtime/runtime_services',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -6229,7 +6230,7 @@ define("json!laxar/static/schemas/flow.json", function(){ return {
 ;});
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -6765,7 +6766,7 @@ define("json!laxar/static/schemas/page.json", function(){ return {
 ;});
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7290,7 +7291,7 @@ define( 'laxar/lib/loaders/page_loader',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7372,7 +7373,7 @@ define( 'laxar/lib/runtime/layout_widget_adapter',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7552,7 +7553,7 @@ define( 'laxar/lib/runtime/area_helper',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7636,7 +7637,7 @@ define( 'laxar/lib/runtime/locale_event_manager',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -7800,7 +7801,7 @@ define( 'laxar/lib/runtime/visibility_event_manager',[], function() {
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8113,7 +8114,7 @@ define( 'laxar/lib/runtime/page',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8326,7 +8327,7 @@ define( 'laxar/lib/profiling/output',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8566,7 +8567,7 @@ define( 'laxar/lib/profiling/profiling',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
@@ -8595,7 +8596,7 @@ define( 'laxar/lib/runtime/runtime_dependencies',[
 } );
 
 /**
- * Copyright 2015 aixigo AG
+ * Copyright 2016 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
