@@ -2101,10 +2101,13 @@ define( 'laxar/lib/event_bus/event_bus',[
       function didCollector( event, meta ) {
          givenDidResponses.push( { event: event, meta: meta } );
 
-         var senderIndex = willWaitingForDid.indexOf( meta.sender );
-         if( senderIndex !== -1 ) {
-            willWaitingForDid.splice( senderIndex, 1 );
-         }
+         var senderIndex;
+         do {
+            senderIndex = willWaitingForDid.indexOf( meta.sender );
+            if( senderIndex !== -1 ) {
+               willWaitingForDid.splice( senderIndex, 1 );
+            }
+         } while( senderIndex !== -1 );
 
          if( willWaitingForDid.length === 0 && cycleFinished ) {
             finish();
@@ -2124,19 +2127,19 @@ define( 'laxar/lib/event_bus/event_bus',[
          }
       }, options.pendingDidTimeout );
 
-      this.publish( eventName, optionalEvent, options ).then( function() {
-         if( willWaitingForDid.length === 0 ) {
-            // either there was no will or all did responses were already given in the same cycle as the will
-            finish();
-            return;
-         }
-
-         cycleFinished = true;
-      } );
+      this.publish( eventName, optionalEvent, options )
+         .then( function() {
+            self.unsubscribe( willCollector );
+            if( willWaitingForDid.length === 0 ) {
+               // either there was no will or all did responses were already given in the same cycle as the will
+               finish();
+               return;
+            }
+            cycleFinished = true;
+         } );
 
       function finish( wasCanceled ) {
          clearTimeout( timeoutRef );
-         self.unsubscribe( willCollector );
          self.unsubscribe( didCollector );
          ( wasCanceled ? deferred.reject : deferred.resolve )( givenDidResponses );
       }
