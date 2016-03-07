@@ -8019,7 +8019,7 @@ define( 'laxar/lib/loaders/page_loader',[
          object.forEach( page.areas, function( widgets ) {
             /*jshint loopfunc:true*/
             for( var i = widgets.length - 1; i >= 0; --i ) {
-               ( function( widgetSpec, index ) {
+               ( function( widgetSpec ) {
                   if( widgetSpec.enabled === false ) {
                      return;
                   }
@@ -8074,10 +8074,10 @@ define( 'laxar/lib/loaders/page_loader',[
                               } );
                         } )
                         .then( function( composition ) {
-                           mergeCompositionAreasWithPageAreas( composition, page, widgets, index );
+                           mergeCompositionAreasWithPageAreas( composition, page, widgets, widgetSpec );
                         } );
                   }
-               } )( widgets[ i ], i );
+               } )( widgets[ i ] );
             }
          } );
 
@@ -8098,10 +8098,10 @@ define( 'laxar/lib/loaders/page_loader',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function mergeCompositionAreasWithPageAreas( composition, page, widgets, index ) {
+   function mergeCompositionAreasWithPageAreas( composition, page, widgets, compositionSpec ) {
       object.forEach( composition.areas, function( compositionAreaWidgets, areaName ) {
          if( areaName === '.' ) {
-            replaceEntryAtIndexWith( widgets, index, compositionAreaWidgets );
+            insertAfterEntry( widgets, compositionSpec, compositionAreaWidgets );
             return;
          }
 
@@ -8112,6 +8112,18 @@ define( 'laxar/lib/loaders/page_loader',[
 
          mergeWidgetLists( page.areas[ areaName ], compositionAreaWidgets, page );
       } );
+
+      removeEntry( widgets, compositionSpec );
+
+      function insertAfterEntry( arr, entry, replacements ) {
+         var index = arr.indexOf( entry );
+         arr.splice.apply( arr, [ index, 0 ].concat( replacements ) );
+      }
+
+      function removeEntry( arr, entry, replacements ) {
+         var index = arr.indexOf( entry );
+         arr.splice( index, 1 );
+      }
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -8341,10 +8353,6 @@ define( 'laxar/lib/loaders/page_loader',[
 
    function topicFromId( id ) {
       return id.replace( ID_SEPARATOR_MATCHER, SUBTOPIC_SEPARATOR ).replace( SEGMENTS_MATCHER, dashToCamelcase );
-   }
-
-   function replaceEntryAtIndexWith( arr, index, replacements ) {
-      arr.splice.apply( arr, [ index, 1 ].concat( replacements ) );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
