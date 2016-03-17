@@ -7458,7 +7458,7 @@ define( 'laxar/lib/runtime/flow',[
                   } );
             } )
             .then( null, function( error ) {
-               log.error( error );
+               log.error( 'Error during navigation: [0]', error );
             } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7779,7 +7779,7 @@ define( 'laxar/lib/runtime/flow',[
 
       if( result.errors.length ) {
          result.errors.forEach( function( error ) {
-            log.error( '[0]', error.message );
+            log.error( 'Failed validating flow file: [0]', error.message );
          } );
 
          throw new Error( 'Illegal flow.json format' );
@@ -7872,11 +7872,12 @@ define( 'laxar/lib/loaders/page_loader',[
    '../utilities/object',
    '../utilities/string',
    '../utilities/path',
+   '../logging/log',
    '../json/validator',
    './features_provider',
    'json!../../static/schemas/page.json',
    '../tooling/pages'
-], function( assert, object, string, path, jsonValidator, featuresProvider, pageSchema, pageTooling ) {
+], function( assert, object, string, path, log, jsonValidator, featuresProvider, pageSchema, pageTooling ) {
    'use strict';
 
    var SEGMENTS_MATCHER = /[_/-]./g;
@@ -8053,11 +8054,16 @@ define( 'laxar/lib/loaders/page_loader',[
                         seenCompositionIdCount[ widgetSpec.id ] = 1;
                      }
 
+                     var compositionUrl = assetUrl( self.baseUrl_, compositionName );
+
                      // Loading compositionUrl can be started asynchronously, but replacing the according widgets
                      // in the page needs to take place in order. Otherwise the order of widgets could be messed up.
                      promise = promise
                         .then( function() {
-                           return load( self, assetUrl( self.baseUrl_, compositionName ) );
+                           return load( self, compositionUrl )
+                              .catch( function() {
+                                 throwError( { name: page.name }, 'Composition "' + compositionName + '" could not be found at location "' + compositionUrl + '"' );
+                              } );
                         } )
                         .then( function( composition ) {
                            return prefixCompositionIds( composition, widgetSpec );
