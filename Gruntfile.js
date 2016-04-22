@@ -46,6 +46,9 @@ module.exports = function (grunt) {
          'laxar-path-themes': DEFER,
          'laxar-path-flow': DEFER
       },
+      pragmas: {
+         disableJsonValidation: false
+      },
       out: 'dist/' + pkg.name,
       optimize: 'none',
       generateSourceMaps: false
@@ -86,6 +89,17 @@ module.exports = function (grunt) {
             }
          },
 
+         // LaxarJS, with all dependencies and all optional optimizations enabled
+         'with-deps-opt': {
+            options: {
+               paths: fullPaths,
+               out: base.out + '.with-deps-opt.js',
+               pragmas: {
+                  disableJsonValidation: true
+               }
+            }
+         },
+
          // LaxarJS testing, with all dependencies plus jQuery
          'testing': {
             options: {
@@ -113,6 +127,12 @@ module.exports = function (grunt) {
          'with-deps': {
             files: {
                'dist/laxar.with-deps.min.js': [ 'dist/laxar.with-deps.js' ]
+            }
+         },
+
+         'with-deps-opt': {
+            files: {
+               'dist/laxar.with-deps-opt.min.js': [ 'dist/laxar.with-deps-opt.js' ]
             }
          }
       }
