@@ -7952,10 +7952,14 @@ define( 'laxar/lib/loaders/page_loader',[
             return processExtends( self, page, extensionChain );
          } )
          .then( function() {
+            generateMissingIds( self, page );
+            // we need to check ids before and after expanding compositions
+            checkForDuplicateIds( self, page );
             return processCompositions( self, page, pageName );
          } )
          .then( function() {
-            return checkForDuplicateWidgetIds( self, page );
+            checkForDuplicateIds( self, page );
+            removeDisabledWidgets( self, page );
          } )
          .then( function() {
             pageTooling.setPageDefinition( pageName, page, pageTooling.FLAT );
@@ -8015,7 +8019,6 @@ define( 'laxar/lib/loaders/page_loader',[
       function processNestedCompositions( page, instanceId, compositionChain ) {
 
          var promise = self.q_.when();
-         var seenCompositionIdCount = {};
 
          object.forEach( page.areas, function( widgets ) {
             /*jshint loopfunc:true*/
@@ -8025,11 +8028,9 @@ define( 'laxar/lib/loaders/page_loader',[
                      return;
                   }
 
+                  ensureWidgetSpecHasId( self, widgetSpec );
+
                   if( has( widgetSpec, 'widget' ) ) {
-                     if( !has( widgetSpec, 'id' ) ) {
-                        var widgetName = widgetSpec.widget.split( '/' ).pop();
-                        widgetSpec.id = nextId( self, widgetName.replace( SEGMENTS_MATCHER, dashToCamelcase ) );
-                     }
                      return;
                   }
 
@@ -8039,19 +8040,6 @@ define( 'laxar/lib/loaders/page_loader',[
                         var message = 'Cycle in compositions detected: ' +
                                       compositionChain.concat( [ compositionName ] ).join( ' -> ' );
                         throwError( topPage, message );
-                     }
-
-                     if( !has( widgetSpec, 'id' ) ) {
-                        var escapedCompositionName =
-                           widgetSpec.composition.replace( SEGMENTS_MATCHER, dashToCamelcase );
-                        widgetSpec.id = nextId( self, escapedCompositionName );
-                     }
-
-                     if( widgetSpec.id in seenCompositionIdCount ) {
-                        seenCompositionIdCount[ widgetSpec.id ]++;
-                     }
-                     else {
-                        seenCompositionIdCount[ widgetSpec.id ] = 1;
                      }
 
                      var compositionUrl = assetUrl( self.baseUrl_, compositionName );
@@ -8094,8 +8082,6 @@ define( 'laxar/lib/loaders/page_loader',[
          else {
             pageTooling.setCompositionDefinition( topPageName, instanceId, page, pageTooling.COMPACT );
          }
-
-         checkForDuplicateCompositionIds( page, seenCompositionIdCount );
 
          return promise;
       }
@@ -8237,33 +8223,30 @@ define( 'laxar/lib/loaders/page_loader',[
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function checkForDuplicateCompositionIds( page, idCount ) {
-      var duplicates = Object.keys( idCount ).filter( function( compositionId ) {
-         return idCount[ compositionId ] > 1;
-      } );
-
-      if( duplicates.length ) {
-         throwError( page, 'Duplicate composition ID(s): ' + duplicates.join( ', ' ) );
-      }
-   }
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
    //
    // Additional Tasks
    //
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function checkForDuplicateWidgetIds( self, page ) {
-      var idCount = {};
-
+   function removeDisabledWidgets( self, page ) {
       object.forEach( page.areas, function( widgetList, index ) {
          page.areas[ index ] = widgetList.filter( function( widgetSpec ) {
             if( widgetSpec.enabled === false ) {
                return false;
             }
-            idCount[ widgetSpec.id ] = idCount[ widgetSpec.id ] ? idCount[ widgetSpec.id ] + 1 : 1;
             return true;
+         } );
+      } );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function checkForDuplicateIds( self, page ) {
+      var idCount = {};
+
+      object.forEach( page.areas, function( widgetList, index ) {
+         object.forEach( widgetList, function( widgetSpec ) {
+            idCount[ widgetSpec.id ] = idCount[ widgetSpec.id ] ? idCount[ widgetSpec.id ] + 1 : 1;
          } );
       } );
 
@@ -8272,8 +8255,44 @@ define( 'laxar/lib/loaders/page_loader',[
       } );
 
       if( duplicates.length ) {
-         throwError( page, 'Duplicate widget ID(s): ' + duplicates.join( ', ' ) );
+         throwError( page, 'Duplicate widget/composition ID(s): ' + duplicates.join( ', ' ) );
       }
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function generateDefaultWidgetSpecName( widgetSpec ) {
+      var name;
+      if( widgetSpec.hasOwnProperty( 'widget' ) ) {
+         name = widgetSpec.widget.split( '/' ).pop();
+      }
+      else if( widgetSpec.hasOwnProperty( 'composition' ) ) {
+         name = widgetSpec.composition;
+      }
+      else if( widgetSpec.hasOwnProperty( 'layout' ) ) {
+         name = widgetSpec.layout;
+      }
+      // Assume that non-standard items do not require a specific name.
+      return name ? name.replace( SEGMENTS_MATCHER, dashToCamelcase ) : '';
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function ensureWidgetSpecHasId( self, widgetSpec ) {
+      if( widgetSpec.hasOwnProperty( 'id' ) ) {
+         return;
+      }
+      widgetSpec.id = nextId( self, generateDefaultWidgetSpecName( widgetSpec ) );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function generateMissingIds( self, page ) {
+      object.forEach( page.areas, function( widgetList ) {
+         object.forEach( widgetList, function( widgetSpec ) {
+            ensureWidgetSpecHasId( self, widgetSpec );
+         } );
+      } );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
