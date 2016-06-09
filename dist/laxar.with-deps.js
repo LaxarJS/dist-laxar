@@ -1250,7 +1250,7 @@ define( 'laxar/lib/directives/layout/layout',[
  *
  * When requiring `laxar`, it is available as `laxar.string`.
  *
- * @module object
+ * @module string
  */
 define( 'laxar/lib/utilities/string',[], function() {
    'use strict';
