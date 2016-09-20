@@ -7356,11 +7356,12 @@ define( 'laxar/lib/runtime/flow',[
    '../logging/log',
    '../json/validator',
    '../utilities/object',
+   '../utilities/configuration',
    '../utilities/timer',
    '../utilities/path',
    '../loaders/paths',
    'json!../../static/schemas/flow.json'
-], function( ng, ngRoute, log, jsonValidator, object, timer, path, paths, flowSchema ) {
+], function( ng, ngRoute, log, jsonValidator, object, configuration, timer, path, paths, flowSchema ) {
    'use strict';
 
    var module = ng.module( 'axFlow', [ 'ngRoute' ] );
@@ -7368,33 +7369,33 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var $routeProvider_;
+   var html5Mode_;
+   var routePrefix_;
+   var exitPoints_;
+   var entryPoint_;
 
-   module.config( [ '$routeProvider', function( $routeProvider ) {
+   module.config( [ '$routeProvider', '$locationProvider', function( $routeProvider, $locationProvider ) {
+      html5Mode_ = configuration.get( 'flow.router.html5Mode', false );
+      $locationProvider.html5Mode( html5Mode_ );
       $routeProvider_ = $routeProvider;
    } ] );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var fileResourceProvider_;
-   var exitPoints_;
-   var entryPoint_;
 
-   module.run( [
-      '$route', 'axConfiguration', 'axFileResourceProvider',
+   module.run( [ '$route', 'axFileResourceProvider', function( $route, fileResourceProvider ) {
+      fileResourceProvider_ = fileResourceProvider;
+      routePrefix_ = configuration.get( 'flow.router.base', '' );
+      entryPoint_ = configuration.get( 'flow.entryPoint' );
+      exitPoints_ = configuration.get( 'flow.exitPoints' );
 
-      function( $route, configuration, fileResourceProvider ) {
-         fileResourceProvider_ = fileResourceProvider;
-
-         entryPoint_ = configuration.get( 'flow.entryPoint' );
-         exitPoints_ = configuration.get( 'flow.exitPoints' );
-
-         // idea for lazy loading routes using $routeProvider and $route.reload() found here:
-         // https://groups.google.com/d/msg/angular/mrcy_2BZavQ/Mqte8AvEh0QJ
-         loadFlow( path.normalize( paths.FLOW_JSON ) ).then( function() {
-            $route.reload();
-         } );
-      } ]
-   );
+      // idea for lazy loading routes using $routeProvider and $route.reload() found here:
+      // https://groups.google.com/d/msg/angular/mrcy_2BZavQ/Mqte8AvEh0QJ
+      loadFlow( path.normalize( paths.FLOW_JSON ) ).then( function() {
+         $route.reload();
+      } );
+   } ] );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7416,9 +7417,9 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    module.controller( 'AxFlowController', [
-      '$window', '$location', '$routeParams', 'place', 'axGlobalEventBus', 'axFlowService', 'axPageService',
+      '$location', '$routeParams', 'place', 'axGlobalEventBus', 'axFlowService', 'axPageService',
 
-      function FlowController( $window, $location, $routeParams, place, eventBus, flowService, pageService ) {
+      function FlowController( $location, $routeParams, place, eventBus, flowService, pageService ) {
          // The flow controller is instantiated on route change by AngularJS. It then announces the start of
          // navigation ("willNavigate") and initiates loading of the new page. As soon as the new page is
          // loaded, the "didNavigate" event finishes the navigation logic. The flow controller then starts to
@@ -7601,8 +7602,14 @@ define( 'laxar/lib/runtime/flow',[
           * @memberOf axFlowService
           */
          constructAbsoluteUrl: function( targetOrPlace, optionalParameters ) {
-            var absUrl = $location.absUrl().split( '#' )[0];
-            return absUrl + flowService.constructAnchor( targetOrPlace, optionalParameters );
+            if( html5Mode_ ) {
+               // relies on correct base URL setting:
+               return '.' + flowService.constructPath( targetOrPlace, optionalParameters );
+            }
+            else {
+               var absUrl = $location.absUrl().split( '#' )[0];
+               return absUrl + flowService.constructAnchor( targetOrPlace, optionalParameters );
+            }
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7640,11 +7647,10 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function placeNameForNavigationTarget( targetOrPlaceName, activePlace ) {
-      var placeName = object.path( activePlace, 'targets.' + targetOrPlaceName, targetOrPlaceName );
+      var placeName = object.path( activePlace, 'targets.' + targetOrPlaceName, routePrefix_ + targetOrPlaceName );
       if( placeName in places_ ) {
          return placeName;
       }
-
       log.error( 'Unknown target or place "[0]".', targetOrPlaceName );
    }
 
@@ -7682,7 +7688,7 @@ define( 'laxar/lib/runtime/flow',[
             } );
 
             $routeProvider_.otherwise( {
-               redirectTo: '/entry'
+               redirectTo: '/' + routePrefix_ + 'entry'
             } );
          } );
    }
@@ -7692,14 +7698,15 @@ define( 'laxar/lib/runtime/flow',[
    function assembleRoute( routeName, place ) {
       if( place.redirectTo ) {
          $routeProvider_.when( '/' + routeName, {
-            redirectTo: place.redirectTo
+            redirectTo: routePrefix_ + place.redirectTo
          } );
          return;
       }
 
       if( place.entryPoints ) {
+         var route = routeByEntryPoint( place.entryPoints );
          $routeProvider_.when( '/' + routeName, {
-            redirectTo: routeByEntryPoint( place.entryPoints )
+            redirectTo: route != null ? ( routePrefix_ + route ) : route
          } );
          return;
       }
@@ -7746,12 +7753,20 @@ define( 'laxar/lib/runtime/flow',[
    function processPlaceParameters( places ) {
       var processedRoutes = {};
 
-      object.forEach( places, function( place, placeName ) {
+      object.forEach( places, function( place, placeSuffix ) {
+         var placeName = routePrefix_ + placeSuffix;
+
          place.expectedParameters = [];
          place.id = placeName;
 
          if( !place.targets ) {
             place.targets = {};
+         }
+
+         if( routePrefix_ ) {
+            ng.forEach( place.targets, function( targetPlaceSuffix, target ) {
+               place.targets[ target ] = routePrefix_ + place.targets[ target ];
+            } );
          }
          if( !place.targets[ TARGET_SELF ] ) {
             place.targets[ TARGET_SELF ] = placeName.split( /\/:/ )[0];
