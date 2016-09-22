@@ -6435,7 +6435,7 @@ define( 'laxar/lib/runtime/flow',[
     * @name axFlowService
     * @injection
     */
-   module.factory( 'axFlowService', [ '$location', function( $location ) {
+   module.factory( 'axFlowService', [ '$location', '$browser', function( $location, $browser ) {
 
       var flowService = {
 
@@ -6508,9 +6508,9 @@ define( 'laxar/lib/runtime/flow',[
           * @memberOf axFlowService
           */
          constructAbsoluteUrl: function( targetOrPlace, optionalParameters ) {
-            if( html5Mode_ ) {
-               // relies on correct base URL setting:
-               return '.' + flowService.constructPath( targetOrPlace, optionalParameters );
+            if( html5Mode_ && html5Mode_.enabled !== false ) {
+               return $browser.baseHref().replace( /\/$/, '' ) +
+                  flowService.constructPath( targetOrPlace, optionalParameters );
             }
             else {
                var absUrl = $location.absUrl().split( '#' )[0];

@@ -11,7 +11,7 @@ module.exports = function (grunt) {
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   var banner = '/** Copyright 2015 aixigo AG, Released under the MIT license: http://laxarjs.org/license */';
+   var banner = '/** Copyright 2016 aixigo AG, Released under the MIT license: http://laxarjs.org/license */';
 
    // mark dependencies that will be satisfied by other bundles
    var DEFER = 'empty:';
