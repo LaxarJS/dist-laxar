@@ -6422,7 +6422,7 @@ define( 'laxar/lib/runtime/flow',[
                persistenceKey: SESSION_KEY_TIMER
             } );
 
-            var newPath = flowService.constructPath( event.target, event.data );
+            var newPath = constructPath( event.target, event.data, encodePlaceParameter );
             if( newPath !== $location.path() ) {
                // this will instantiate another flow controller
                $location.path( newPath );
@@ -6449,6 +6449,9 @@ define( 'laxar/lib/runtime/flow',[
 
       }
    ] );
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -6479,16 +6482,9 @@ define( 'laxar/lib/runtime/flow',[
           * @memberOf axFlowService
           */
          constructPath: function( targetOrPlace, optionalParameters ) {
-            var newParameters = object.options( optionalParameters, activeParameters_ || {} );
-            var placeName = placeNameForNavigationTarget( targetOrPlace, activePlace_ );
-            var place = places_[ placeName ];
-            var location = '/' + placeName;
-
-            object.forEach( place.expectedParameters, function( parameterName ) {
-               location += '/' + encodePlaceParameter( newParameters[ parameterName ] );
+            return constructPath( targetOrPlace, optionalParameters, function( segment ) {
+               return segment == null ? '_' : encodeURIComponent( segment );
             } );
-
-            return location;
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -6576,6 +6572,21 @@ define( 'laxar/lib/runtime/flow',[
       }
 
       log.error( 'Unknown target or place "[0]".', targetOrPlaceName );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function constructPath( targetOrPlace, optionalParameters, encodeParameter ) {
+      var newParameters = object.options( optionalParameters, activeParameters_ || {} );
+      var placeName = placeNameForNavigationTarget( targetOrPlace, activePlace_ );
+      var place = places_[ placeName ];
+      var location = '/' + placeName;
+
+      object.forEach( place.expectedParameters, function( parameterName ) {
+         location += '/' + encodeParameter( newParameters[ parameterName ] );
+      } );
+
+      return location;
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
