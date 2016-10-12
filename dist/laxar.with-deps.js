@@ -403,11 +403,24 @@ define( 'laxar/lib/utilities/object',[], function() {
     * by a dot from each other, used to traverse that object and find the value of interest. An additional
     * default is returned, if otherwise the value would yield `undefined`.
     *
-    * Example.
+    * Note that `object.path` must only be used in situations where all path segments are also valid
+    * JavaScript identifiers, and should never be used with user-specified paths:
+    *
+    *  - there is no mechanism to escape '.' in path segments; a dot always separates keys,
+    *  - an empty string as a path segment will abort processing and return the entire sub-object under the
+    *    respective position. For historical reasons, the path interpretation differs from that performed by
+    *    #setPath (see there).
+    *
+    *
+    * Example:
+    *
     * ```js
     * object.path( { one: { two: 3 } }, 'one.two' ); // => 3
     * object.path( { one: { two: 3 } }, 'one.three' ); // => undefined
     * object.path( { one: { two: 3 } }, 'one.three', 42 ); // => 42
+    * object.path( { one: { two: 3 } }, 'one.' ); // => { two: 3 }
+    * object.path( { one: { two: 3 } }, '' ); // => { one: { two: 3 } }
+    * object.path( { one: { two: 3 } }, '.' ); // => { one: { two: 3 } }
     *
     * ```
     *
@@ -448,10 +461,21 @@ define( 'laxar/lib/utilities/object',[], function() {
     * keys, separated by a dot from each other, used to traverse that object and find the place where the
     * value should be set. Any missing subtrees along the path are created.
     *
+    * Note that `object.path` must only be used in situations where all path segments are also valid
+    * JavaScript identifiers, and should never be used with user-specified paths:
+    *
+    *  - there is no mechanism to escape '.' in path segments; a dot will always create separate keys,
+    *  - an empty string as a path segment will create an empty string key in the object graph where missing.
+    *    For historical reasons, the path interpretation differs from that performed by #path (see there).
+    *
+    *
     * Example:
+    *
     * ```js
     * object.setPath( {}, 'name.first', 'Peter' ); // => { name: { first: 'Peter' } }
     * object.setPath( {}, 'pets.1', 'Hamster' ); // => { pets: [ null, 'Hamster' ] }
+    * object.setPath( {}, '', 'Hamster' ); // => { '': 'Hamster' } }
+    * object.setPath( {}, '.', 'Hamster' ); // => { '': { '': 'Hamster' } } }
     * ```
     *
     * @param {Object} obj
@@ -3214,9 +3238,10 @@ define( 'laxar/lib/loaders/paths',[
       // Handle Object
       if (obj instanceof Object) {
           copy = {};
+          var hasOwnProperty = copy.hasOwnProperty;
 //           copy = Object.create(Object.getPrototypeOf(obj));
           for (var attr in obj) {
-              if (obj.hasOwnProperty(attr))
+              if (hasOwnProperty.call(obj, attr))
                 copy[attr] = clone(obj[attr]);
           }
           return copy;
@@ -3524,7 +3549,7 @@ define( 'laxar/lib/loaders/paths',[
       if (!schema_stack)
         return {'$ref': schema.$ref};
       else
-        return checkValidity(env, schema_stack, object_stack, options);
+        return env.checkValidity(env, schema_stack, object_stack, options);
     }
 
     if (schema.hasOwnProperty('type')) {
@@ -3545,7 +3570,7 @@ define( 'laxar/lib/loaders/paths',[
 
     if (schema.hasOwnProperty('allOf')) {
       for (i = 0, len = schema.allOf.length; i < len; i++) {
-        objerr = checkValidity(env, schema_stack.concat(schema.allOf[i]), object_stack, options);
+        objerr = env.checkValidity(env, schema_stack.concat(schema.allOf[i]), object_stack, options);
         if (objerr)
           return objerr;
       }
@@ -3555,7 +3580,7 @@ define( 'laxar/lib/loaders/paths',[
       if (schema.hasOwnProperty('oneOf')) {
         minErrCount = Infinity;
         for (i = 0, len = schema.oneOf.length, count = 0; i < len; i++) {
-          objerr = checkValidity(env, schema_stack.concat(schema.oneOf[i]), object_stack, options);
+          objerr = env.checkValidity(env, schema_stack.concat(schema.oneOf[i]), object_stack, options);
           if (!objerr) {
             count = count + 1;
             if (count > 1)
@@ -3579,7 +3604,7 @@ define( 'laxar/lib/loaders/paths',[
         objerrs = null;
         minErrCount = Infinity;
         for (i = 0, len = schema.anyOf.length; i < len; i++) {
-          objerr = checkValidity(env, schema_stack.concat(schema.anyOf[i]), object_stack, options);
+          objerr = env.checkValidity(env, schema_stack.concat(schema.anyOf[i]), object_stack, options);
           if (!objerr) {
             objerrs = null;
             break;
@@ -3597,7 +3622,7 @@ define( 'laxar/lib/loaders/paths',[
       }
 
       if (schema.hasOwnProperty('not')) {
-        objerr = checkValidity(env, schema_stack.concat(schema.not), object_stack, options);
+        objerr = env.checkValidity(env, schema_stack.concat(schema.not), object_stack, options);
         if (!objerr)
           return {'not': true};
       }
@@ -3606,7 +3631,7 @@ define( 'laxar/lib/loaders/paths',[
         minErrCount = Infinity;
         for (i = 0, len = schema.oneOf.length, count = 0; i < len; i++) {
           new_stack = clone_stack(object_stack);
-          objerr = checkValidity(env, schema_stack.concat(schema.oneOf[i]), new_stack, options);
+          objerr = env.checkValidity(env, schema_stack.concat(schema.oneOf[i]), new_stack, options);
           if (!objerr) {
             count = count + 1;
             if (count > 1)
@@ -3633,7 +3658,7 @@ define( 'laxar/lib/loaders/paths',[
         minErrCount = Infinity;
         for (i = 0, len = schema.anyOf.length; i < len; i++) {
           new_stack = clone_stack(object_stack);
-          objerr = checkValidity(env, schema_stack.concat(schema.anyOf[i]), new_stack, options);
+          objerr = env.checkValidity(env, schema_stack.concat(schema.anyOf[i]), new_stack, options);
           if (!objerr) {
             copy_stack(new_stack, object_stack);
             objerrs = null;
@@ -3653,7 +3678,7 @@ define( 'laxar/lib/loaders/paths',[
 
       if (schema.hasOwnProperty('not')) {
         new_stack = clone_stack(object_stack);
-        objerr = checkValidity(env, schema_stack.concat(schema.not), new_stack, options);
+        objerr = env.checkValidity(env, schema_stack.concat(schema.not), new_stack, options);
         if (!objerr)
           return {'not': true};
       }
@@ -3668,7 +3693,7 @@ define( 'laxar/lib/loaders/paths',[
                 return {'dependencies': true};
               }
           } else {
-            objerr = checkValidity(env, schema_stack.concat(schema.dependencies[p]), object_stack, options);
+            objerr = env.checkValidity(env, schema_stack.concat(schema.dependencies[p]), object_stack, options);
             if (objerr)
               return objerr;
           }
@@ -3698,7 +3723,7 @@ define( 'laxar/lib/loaders/paths',[
           matched = false;
           if (hasProp && schema.properties.hasOwnProperty(props[i])) {
             matched = true;
-            objerr = checkValidity(env, schema_stack.concat(schema.properties[props[i]]), object_stack.concat({object: prop, key: props[i]}), options);
+            objerr = env.checkValidity(env, schema_stack.concat(schema.properties[props[i]]), object_stack.concat({object: prop, key: props[i]}), options);
             if (objerr !== null) {
               objerrs[props[i]] = objerr;
               malformed = true;
@@ -3708,7 +3733,7 @@ define( 'laxar/lib/loaders/paths',[
             for (p in schema.patternProperties)
               if (schema.patternProperties.hasOwnProperty(p) && props[i].match(p)) {
                 matched = true;
-                objerr = checkValidity(env, schema_stack.concat(schema.patternProperties[p]), object_stack.concat({object: prop, key: props[i]}), options);
+                objerr = env.checkValidity(env, schema_stack.concat(schema.patternProperties[p]), object_stack.concat({object: prop, key: props[i]}), options);
                 if (objerr !== null) {
                   objerrs[props[i]] = objerr;
                   malformed = true;
@@ -3723,7 +3748,7 @@ define( 'laxar/lib/loaders/paths',[
       if (options.useDefault && hasProp && !malformed) {
         for (p in schema.properties)
           if (schema.properties.hasOwnProperty(p) && !prop.hasOwnProperty(p) && schema.properties[p].hasOwnProperty('default'))
-            prop[p] = schema.properties[p]['default'];
+            prop[p] = clone(schema.properties[p]['default']);
       }
 
       if (options.removeAdditional && hasProp && schema.additionalProperties !== true && typeof schema.additionalProperties !== 'object') {
@@ -3740,7 +3765,7 @@ define( 'laxar/lib/loaders/paths',[
             }
           } else {
             for (i = 0, len = props.length; i < len; i++) {
-              objerr = checkValidity(env, schema_stack.concat(schema.additionalProperties), object_stack.concat({object: prop, key: props[i]}), options);
+              objerr = env.checkValidity(env, schema_stack.concat(schema.additionalProperties), object_stack.concat({object: prop, key: props[i]}), options);
               if (objerr !== null) {
                 objerrs[props[i]] = objerr;
                 malformed = true;
@@ -3755,7 +3780,7 @@ define( 'laxar/lib/loaders/paths',[
       if (schema.hasOwnProperty('items')) {
         if (Array.isArray(schema.items)) {
           for (i = 0, len = schema.items.length; i < len; i++) {
-            objerr = checkValidity(env, schema_stack.concat(schema.items[i]), object_stack.concat({object: prop, key: i}), options);
+            objerr = env.checkValidity(env, schema_stack.concat(schema.items[i]), object_stack.concat({object: prop, key: i}), options);
             if (objerr !== null) {
               objerrs[i] = objerr;
               malformed = true;
@@ -3767,7 +3792,7 @@ define( 'laxar/lib/loaders/paths',[
                 return {'additionalItems': true};
             } else {
               for (i = len, len = prop.length; i < len; i++) {
-                objerr = checkValidity(env, schema_stack.concat(schema.additionalItems), object_stack.concat({object: prop, key: i}), options);
+                objerr = env.checkValidity(env, schema_stack.concat(schema.additionalItems), object_stack.concat({object: prop, key: i}), options);
                 if (objerr !== null) {
                   objerrs[i] = objerr;
                   malformed = true;
@@ -3777,7 +3802,7 @@ define( 'laxar/lib/loaders/paths',[
           }
         } else {
           for (i = 0, len = prop.length; i < len; i++) {
-            objerr = checkValidity(env, schema_stack.concat(schema.items), object_stack.concat({object: prop, key: i}), options);
+            objerr = env.checkValidity(env, schema_stack.concat(schema.items), object_stack.concat({object: prop, key: i}), options);
             if (objerr !== null) {
               objerrs[i] = objerr;
               malformed = true;
@@ -3787,7 +3812,7 @@ define( 'laxar/lib/loaders/paths',[
       } else if (schema.hasOwnProperty('additionalItems')) {
         if (typeof schema.additionalItems !== 'boolean') {
           for (i = 0, len = prop.length; i < len; i++) {
-            objerr = checkValidity(env, schema_stack.concat(schema.additionalItems), object_stack.concat({object: prop, key: i}), options);
+            objerr = env.checkValidity(env, schema_stack.concat(schema.additionalItems), object_stack.concat({object: prop, key: i}), options);
             if (objerr !== null) {
               objerrs[i] = objerr;
               malformed = true;
@@ -3841,6 +3866,7 @@ define( 'laxar/lib/loaders/paths',[
   }
 
   Environment.prototype = {
+    checkValidity: checkValidity,
     validate: function (name, object, options) {
       var schema_stack = [name], errors = null, object_stack = [{object: {'__root__': object}, key: '__root__'}];
 
@@ -3858,7 +3884,7 @@ define( 'laxar/lib/loaders/paths',[
             options[p] = this.defaultOptions[p];
       }
 
-      errors = checkValidity(this, schema_stack, object_stack, options);
+      errors = this.checkValidity(this, schema_stack, object_stack, options);
 
       if (errors)
         return {validation: errors.hasOwnProperty('schema') ? errors.schema : errors};
@@ -7304,12 +7330,20 @@ define("json!laxar/static/schemas/flow.json", function(){ return {
                   },
                   "targets": {
                      "type": "object",
+                     "default": {},
                      "patternProperties": {
                         "[a-z][a-zA-Z0-9_]*": {
                            "type": "string"
                         }
                      },
                      "description": "A map of symbolic targets to places reachable from this place."
+                  },
+                  "queryParameters": {
+                     "type": "object",
+                     "default": {},
+                     "additionalProperties": {
+                        "type": [ "string", "boolean", "null" ]
+                     }
                   },
                   "entryPoints": {
                      "type": "object",
@@ -7373,6 +7407,7 @@ define( 'laxar/lib/runtime/flow',[
    var routePrefix_;
    var exitPoints_;
    var entryPoint_;
+   var queryEnabled_;
 
    module.config( [ '$routeProvider', '$locationProvider', function( $routeProvider, $locationProvider ) {
       html5Mode_ = configuration.get( 'flow.router.html5Mode', false );
@@ -7385,10 +7420,15 @@ define( 'laxar/lib/runtime/flow',[
    var fileResourceProvider_;
 
    module.run( [ '$route', 'axFileResourceProvider', function( $route, fileResourceProvider ) {
+      activeParameters_ = {};
+      activeTarget_ = TARGET_SELF;
+      activePlace_ = null;
+
       fileResourceProvider_ = fileResourceProvider;
       routePrefix_ = configuration.get( 'flow.router.base', '' );
       entryPoint_ = configuration.get( 'flow.entryPoint' );
       exitPoints_ = configuration.get( 'flow.exitPoints' );
+      queryEnabled_ = configuration.get( 'flow.query.enabled', false );
 
       // idea for lazy loading routes using $routeProvider and $route.reload() found here:
       // https://groups.google.com/d/msg/angular/mrcy_2BZavQ/Mqte8AvEh0QJ
@@ -7402,9 +7442,9 @@ define( 'laxar/lib/runtime/flow',[
    var SESSION_KEY_TIMER = 'navigationTimer';
    var TARGET_SELF = '_self';
 
-   var activeTarget_ = TARGET_SELF;
-   var activePlace_ = null;
-   var activeParameters_ = {};
+   var activeTarget_;
+   var activePlace_;
+   var activeParameters_;
 
    var places_;
    var previousNavigateRequestSubscription_;
@@ -7431,7 +7471,7 @@ define( 'laxar/lib/runtime/flow',[
 
          var previousPlace = activePlace_;
          activePlace_ = place;
-         activeParameters_ = decodeExpectedPlaceParameters( $routeParams, place );
+         activeParameters_ = collectParameters( $routeParams, place, $location.search() );
 
          if( typeof place.exitPoint === 'string' ) {
             var exit = place.exitPoint;
@@ -7444,7 +7484,10 @@ define( 'laxar/lib/runtime/flow',[
 
          navigationInProgress_ = true;
          var navigateEvent = { target: activeTarget_ };
-         var didNavigateEvent =  object.options( { data: {}, place: place.id }, navigateEvent );
+         var didNavigateEvent = object.options(
+            { data: {}, place: place.id },
+            navigateEvent
+         );
 
          eventBus.publish( 'willNavigate.' + activeTarget_, navigateEvent, eventOptions )
             .then( function() {
@@ -7493,10 +7536,10 @@ define( 'laxar/lib/runtime/flow',[
                persistenceKey: SESSION_KEY_TIMER
             } );
 
-            var newPath = flowService.constructPath( event.target, event.data );
-            if( newPath !== $location.path() ) {
+            var newUrl = constructUrl( event.target, event.data );
+            if( newUrl !== $location.url() ) {
                // this will instantiate another flow controller
-               $location.path( newPath );
+               $location.url( newUrl );
                meta.unsubscribe();
             }
             else {
@@ -7547,19 +7590,14 @@ define( 'laxar/lib/runtime/flow',[
           * @return {string}
           *    the generated path
           *
+          * @deprecated
+          *    this will probably create invalid links if using query parameters. Use constructAbsoluteUrl
+          *    instead.
+          *
           * @memberOf axFlowService
           */
          constructPath: function( targetOrPlace, optionalParameters ) {
-            var newParameters = object.options( optionalParameters, activeParameters_ || {} );
-            var placeName = placeNameForNavigationTarget( targetOrPlace, activePlace_ );
-            var place = places_[ placeName ];
-            var location = '/' + placeName;
-
-            object.forEach( place.expectedParameters, function( parameterName ) {
-               location += '/' + encodePlaceParameter( newParameters[ parameterName ] );
-            } );
-
-            return location;
+            return constructUrl( targetOrPlace, optionalParameters ).split( '?' )[ 0 ];
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7578,10 +7616,14 @@ define( 'laxar/lib/runtime/flow',[
           * @return {string}
           *    the generated anchor
           *
+          * @deprecated
+          *    this will probably create invalid links if using html5 routing. Use constructAbsoluteUrl
+          *    instead, which also works for hash-based URLs.
+          *
           * @memberOf axFlowService
           */
          constructAnchor: function( targetOrPlace, optionalParameters ) {
-            return '#' + flowService.constructPath( targetOrPlace, optionalParameters );
+            return '#' + constructUrl( targetOrPlace, optionalParameters );
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7603,8 +7645,9 @@ define( 'laxar/lib/runtime/flow',[
           */
          constructAbsoluteUrl: function( targetOrPlace, optionalParameters ) {
             if( html5Mode_ && html5Mode_.enabled !== false ) {
-               return $browser.baseHref().replace( /\/$/, '' ) +
-                  flowService.constructPath( targetOrPlace, optionalParameters );
+               var origin = $location.absUrl().replace( $location.url(), '' );
+               return origin + $browser.baseHref().replace( /\/$/, '' ) +
+                   constructUrl( targetOrPlace, optionalParameters );
             }
             else {
                var absUrl = $location.absUrl().split( '#' )[0];
@@ -7620,6 +7663,9 @@ define( 'laxar/lib/runtime/flow',[
           * @return {Object}
           *    the currently active place
           *
+          * @deprecated
+          *    will be removed in LaxarJS v2 without replacement. Subscribe to `didNavigate` for relevant data
+          *
           * @memberOf axFlowService
           */
          place: function() {
@@ -7634,10 +7680,17 @@ define( 'laxar/lib/runtime/flow',[
 
    } ] );
 
+
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function decodeExpectedPlaceParameters( parameters, place ) {
-      var result = {};
+   function encodeSegment( segment ) {
+      return segment == null ? '_' : encodeURIComponent( segment );
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function collectParameters( parameters, place, searchOptions ) {
+      var result = object.options( searchOptions, place.queryParameters );
       ng.forEach( place.expectedParameters, function( parameterName ) {
          result[ parameterName ] = decodePlaceParameter( parameters[ parameterName ] );
       } );
@@ -7656,11 +7709,40 @@ define( 'laxar/lib/runtime/flow',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function encodePlaceParameter( value ) {
-      if( value == null ) {
-         return '_';
+   function constructUrl( targetOrPlace, optionalParameters ) {
+      var newParameters = object.options( optionalParameters, activeParameters_ || {} );
+      var placeName = placeNameForNavigationTarget( targetOrPlace, activePlace_ );
+      var place = places_[ placeName ];
+      var location = '/' + placeName;
+
+      place.expectedParameters.forEach( function( parameterName ) {
+         location += '/' + encodeSegment( newParameters[ parameterName ] );
+         delete newParameters[ parameterName ];
+      } );
+
+      if( queryEnabled_ ) {
+         var query = [];
+         ng.forEach( newParameters, function( value, parameterName ) {
+            var defaultValue = place.queryParameters[ parameterName ];
+            if( value == null || value === defaultValue ) {
+               return;
+            }
+            var encodedKey = encodeURIComponent( parameterName );
+            if( value === true ) {
+               query.push( encodedKey );
+               return;
+            }
+            if( value === false && !defaultValue ) {
+               return;
+            }
+            query.push( encodedKey + '=' + encodeURIComponent( value ) );
+         } );
+
+         if( query.length ) {
+            location += '?' + query.join( '&' );
+         }
       }
-      return typeof value === 'string' ? value.replace( /\//g, '%2F' ) : value;
+      return location;
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7739,7 +7821,7 @@ define( 'laxar/lib/runtime/flow',[
          var parameters = entryPoint.parameters || {};
 
          object.forEach( targetPlace.expectedParameters, function( parameterName ) {
-            uri += '/' + encodePlaceParameter( parameters[ parameterName ] );
+            uri += '/' + encodeSegment( parameters[ parameterName ] );
          } );
 
          return uri;
@@ -7758,10 +7840,6 @@ define( 'laxar/lib/runtime/flow',[
 
          place.expectedParameters = [];
          place.id = placeName;
-
-         if( !place.targets ) {
-            place.targets = {};
-         }
 
          if( routePrefix_ ) {
             ng.forEach( place.targets, function( targetPlaceSuffix, target ) {
@@ -7792,7 +7870,7 @@ define( 'laxar/lib/runtime/flow',[
       return fileResourceProvider_.provide( flowFile )
          .then( function( flow ) {
             validateFlowJson( flow );
-            return flow.places;
+            return flow.places; // JSON.parse( JSON.stringify( flow.places ) );
          }, function( err ) {
             throw new Error( 'Failed to load "' + flowFile + '". Cause: ' + err );
          } );
@@ -7801,7 +7879,7 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function validateFlowJson( flowJson ) {
-      var result = jsonValidator.create( flowSchema ).validate( flowJson );
+      var result = jsonValidator.create( flowSchema, { useDefault: true } ).validate( flowJson );
 
       if( result.errors.length ) {
          result.errors.forEach( function( error ) {
