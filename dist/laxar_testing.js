@@ -7581,6 +7581,9 @@ define( 'laxar/lib/runtime/flow',[
           * AngularJS. If a target is given as first argument, this is resolved using the currently active
           * place.
           *
+          * Deprecation Notice: this will probably create invalid links if using query parameters. Use
+          * constructAbsoluteUrl instead.
+          *
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
           * @param {Object} [optionalParameters]
@@ -7591,8 +7594,7 @@ define( 'laxar/lib/runtime/flow',[
           *    the generated path
           *
           * @deprecated
-          *    this will probably create invalid links if using query parameters. Use constructAbsoluteUrl
-          *    instead.
+          *    see description for details
           *
           * @memberOf axFlowService
           */
@@ -7607,6 +7609,9 @@ define( 'laxar/lib/runtime/flow',[
           * application. If a target is given as first argument, this is resolved using the currently active
           * place.
           *
+          * Deprecation Notice: this will probably create invalid links if using html5 routing. Use
+          * constructAbsoluteUrl instead, which also works for hash-based URLs.
+          *
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
           * @param {Object} [optionalParameters]
@@ -7617,8 +7622,7 @@ define( 'laxar/lib/runtime/flow',[
           *    the generated anchor
           *
           * @deprecated
-          *    this will probably create invalid links if using html5 routing. Use constructAbsoluteUrl
-          *    instead, which also works for hash-based URLs.
+          *    see description for details
           *
           * @memberOf axFlowService
           */
@@ -7660,11 +7664,14 @@ define( 'laxar/lib/runtime/flow',[
          /**
           * Returns a copy of the currently active place.
           *
+          * Deprecation Notice: will be removed in LaxarJS v2 without replacement. Subscribe to `didNavigate`
+          * for the relevant information.
+          *
           * @return {Object}
           *    the currently active place
           *
           * @deprecated
-          *    will be removed in LaxarJS v2 without replacement. Subscribe to `didNavigate` for relevant data
+          *    see description for details
           *
           * @memberOf axFlowService
           */
