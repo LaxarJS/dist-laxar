@@ -403,24 +403,11 @@ define( 'laxar/lib/utilities/object',[], function() {
     * by a dot from each other, used to traverse that object and find the value of interest. An additional
     * default is returned, if otherwise the value would yield `undefined`.
     *
-    * Note that `object.path` must only be used in situations where all path segments are also valid
-    * JavaScript identifiers, and should never be used with user-specified paths:
-    *
-    *  - there is no mechanism to escape '.' in path segments; a dot always separates keys,
-    *  - an empty string as a path segment will abort processing and return the entire sub-object under the
-    *    respective position. For historical reasons, the path interpretation differs from that performed by
-    *    #setPath (see there).
-    *
-    *
-    * Example:
-    *
+    * Example.
     * ```js
     * object.path( { one: { two: 3 } }, 'one.two' ); // => 3
     * object.path( { one: { two: 3 } }, 'one.three' ); // => undefined
     * object.path( { one: { two: 3 } }, 'one.three', 42 ); // => 42
-    * object.path( { one: { two: 3 } }, 'one.' ); // => { two: 3 }
-    * object.path( { one: { two: 3 } }, '' ); // => { one: { two: 3 } }
-    * object.path( { one: { two: 3 } }, '.' ); // => { one: { two: 3 } }
     *
     * ```
     *
@@ -461,21 +448,10 @@ define( 'laxar/lib/utilities/object',[], function() {
     * keys, separated by a dot from each other, used to traverse that object and find the place where the
     * value should be set. Any missing subtrees along the path are created.
     *
-    * Note that `object.path` must only be used in situations where all path segments are also valid
-    * JavaScript identifiers, and should never be used with user-specified paths:
-    *
-    *  - there is no mechanism to escape '.' in path segments; a dot will always create separate keys,
-    *  - an empty string as a path segment will create an empty string key in the object graph where missing.
-    *    For historical reasons, the path interpretation differs from that performed by #path (see there).
-    *
-    *
     * Example:
-    *
     * ```js
     * object.setPath( {}, 'name.first', 'Peter' ); // => { name: { first: 'Peter' } }
     * object.setPath( {}, 'pets.1', 'Hamster' ); // => { pets: [ null, 'Hamster' ] }
-    * object.setPath( {}, '', 'Hamster' ); // => { '': 'Hamster' } }
-    * object.setPath( {}, '.', 'Hamster' ); // => { '': { '': 'Hamster' } } }
     * ```
     *
     * @param {Object} obj
@@ -4610,7 +4586,7 @@ define( 'laxar/lib/loaders/features_provider',[
       var report = validator.validate( featureConfiguration );
 
       if( report.errors.length > 0 ) {
-         var message = 'Validation of feature-configuration failed. Errors: ';
+         var message = 'Validation for widget features failed. Errors: ';
 
          report.errors.forEach( function( error ) {
             message += '\n - ' + error.message.replace( /\[/g, '\\[' );
@@ -7330,20 +7306,12 @@ define("json!laxar/static/schemas/flow.json", function(){ return {
                   },
                   "targets": {
                      "type": "object",
-                     "default": {},
                      "patternProperties": {
                         "[a-z][a-zA-Z0-9_]*": {
                            "type": "string"
                         }
                      },
                      "description": "A map of symbolic targets to places reachable from this place."
-                  },
-                  "queryParameters": {
-                     "type": "object",
-                     "default": {},
-                     "additionalProperties": {
-                        "type": [ "string", "boolean", "null" ]
-                     }
                   },
                   "entryPoints": {
                      "type": "object",
@@ -7390,12 +7358,11 @@ define( 'laxar/lib/runtime/flow',[
    '../logging/log',
    '../json/validator',
    '../utilities/object',
-   '../utilities/configuration',
    '../utilities/timer',
    '../utilities/path',
    '../loaders/paths',
    'json!../../static/schemas/flow.json'
-], function( ng, ngRoute, log, jsonValidator, object, configuration, timer, path, paths, flowSchema ) {
+], function( ng, ngRoute, log, jsonValidator, object, timer, path, paths, flowSchema ) {
    'use strict';
 
    var module = ng.module( 'axFlow', [ 'ngRoute' ] );
@@ -7403,48 +7370,42 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var $routeProvider_;
-   var html5Mode_;
-   var routePrefix_;
-   var exitPoints_;
-   var entryPoint_;
-   var queryEnabled_;
 
-   module.config( [ '$routeProvider', '$locationProvider', function( $routeProvider, $locationProvider ) {
-      html5Mode_ = configuration.get( 'flow.router.html5Mode', false );
-      $locationProvider.html5Mode( html5Mode_ );
+   module.config( [ '$routeProvider', function( $routeProvider ) {
       $routeProvider_ = $routeProvider;
    } ] );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var fileResourceProvider_;
+   var exitPoints_;
+   var entryPoint_;
 
-   module.run( [ '$route', 'axFileResourceProvider', function( $route, fileResourceProvider ) {
-      activeParameters_ = {};
-      activeTarget_ = TARGET_SELF;
-      activePlace_ = null;
+   module.run( [
+      '$route', 'axConfiguration', 'axFileResourceProvider',
 
-      fileResourceProvider_ = fileResourceProvider;
-      routePrefix_ = configuration.get( 'flow.router.base', '' );
-      entryPoint_ = configuration.get( 'flow.entryPoint' );
-      exitPoints_ = configuration.get( 'flow.exitPoints' );
-      queryEnabled_ = configuration.get( 'flow.query.enabled', false );
+      function( $route, configuration, fileResourceProvider ) {
+         fileResourceProvider_ = fileResourceProvider;
 
-      // idea for lazy loading routes using $routeProvider and $route.reload() found here:
-      // https://groups.google.com/d/msg/angular/mrcy_2BZavQ/Mqte8AvEh0QJ
-      loadFlow( path.normalize( paths.FLOW_JSON ) ).then( function() {
-         $route.reload();
-      } );
-   } ] );
+         entryPoint_ = configuration.get( 'flow.entryPoint' );
+         exitPoints_ = configuration.get( 'flow.exitPoints' );
+
+         // idea for lazy loading routes using $routeProvider and $route.reload() found here:
+         // https://groups.google.com/d/msg/angular/mrcy_2BZavQ/Mqte8AvEh0QJ
+         loadFlow( path.normalize( paths.FLOW_JSON ) ).then( function() {
+            $route.reload();
+         } );
+      } ]
+   );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var SESSION_KEY_TIMER = 'navigationTimer';
    var TARGET_SELF = '_self';
 
-   var activeTarget_;
-   var activePlace_;
-   var activeParameters_;
+   var activeTarget_ = TARGET_SELF;
+   var activePlace_ = null;
+   var activeParameters_ = {};
 
    var places_;
    var previousNavigateRequestSubscription_;
@@ -7457,9 +7418,9 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    module.controller( 'AxFlowController', [
-      '$location', '$routeParams', 'place', 'axGlobalEventBus', 'axFlowService', 'axPageService',
+      '$window', '$location', '$routeParams', 'place', 'axGlobalEventBus', 'axFlowService', 'axPageService',
 
-      function FlowController( $location, $routeParams, place, eventBus, flowService, pageService ) {
+      function FlowController( $window, $location, $routeParams, place, eventBus, flowService, pageService ) {
          // The flow controller is instantiated on route change by AngularJS. It then announces the start of
          // navigation ("willNavigate") and initiates loading of the new page. As soon as the new page is
          // loaded, the "didNavigate" event finishes the navigation logic. The flow controller then starts to
@@ -7471,7 +7432,7 @@ define( 'laxar/lib/runtime/flow',[
 
          var previousPlace = activePlace_;
          activePlace_ = place;
-         activeParameters_ = collectParameters( $routeParams, place, $location.search() );
+         activeParameters_ = decodeExpectedPlaceParameters( $routeParams, place );
 
          if( typeof place.exitPoint === 'string' ) {
             var exit = place.exitPoint;
@@ -7484,10 +7445,7 @@ define( 'laxar/lib/runtime/flow',[
 
          navigationInProgress_ = true;
          var navigateEvent = { target: activeTarget_ };
-         var didNavigateEvent = object.options(
-            { data: {}, place: place.id },
-            navigateEvent
-         );
+         var didNavigateEvent =  object.options( { data: {}, place: place.id }, navigateEvent );
 
          eventBus.publish( 'willNavigate.' + activeTarget_, navigateEvent, eventOptions )
             .then( function() {
@@ -7536,10 +7494,10 @@ define( 'laxar/lib/runtime/flow',[
                persistenceKey: SESSION_KEY_TIMER
             } );
 
-            var newUrl = constructUrl( event.target, event.data );
-            if( newUrl !== $location.url() ) {
+            var newPath = flowService.constructPath( event.target, event.data );
+            if( newPath !== $location.path() ) {
                // this will instantiate another flow controller
-               $location.url( newUrl );
+               $location.path( newPath );
                meta.unsubscribe();
             }
             else {
@@ -7572,7 +7530,7 @@ define( 'laxar/lib/runtime/flow',[
     * @name axFlowService
     * @injection
     */
-   module.factory( 'axFlowService', [ '$location', '$browser', function( $location, $browser ) {
+   module.factory( 'axFlowService', [ '$location', function( $location ) {
 
       var flowService = {
 
@@ -7580,9 +7538,6 @@ define( 'laxar/lib/runtime/flow',[
           * Constructs a path, that is compatible to the expected arguments of `$location.path()` from
           * AngularJS. If a target is given as first argument, this is resolved using the currently active
           * place.
-          *
-          * Deprecation Notice: this will probably create invalid links if using query parameters. Use
-          * constructAbsoluteUrl instead.
           *
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
@@ -7593,13 +7548,19 @@ define( 'laxar/lib/runtime/flow',[
           * @return {string}
           *    the generated path
           *
-          * @deprecated
-          *    see description for details
-          *
           * @memberOf axFlowService
           */
          constructPath: function( targetOrPlace, optionalParameters ) {
-            return constructUrl( targetOrPlace, optionalParameters ).split( '?' )[ 0 ];
+            var newParameters = object.options( optionalParameters, activeParameters_ || {} );
+            var placeName = placeNameForNavigationTarget( targetOrPlace, activePlace_ );
+            var place = places_[ placeName ];
+            var location = '/' + placeName;
+
+            object.forEach( place.expectedParameters, function( parameterName ) {
+               location += '/' + encodePlaceParameter( newParameters[ parameterName ] );
+            } );
+
+            return location;
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7608,9 +7569,6 @@ define( 'laxar/lib/runtime/flow',[
           * Constructs a path and prepends a `#` to make it directly usable as relative link within an
           * application. If a target is given as first argument, this is resolved using the currently active
           * place.
-          *
-          * Deprecation Notice: this will probably create invalid links if using html5 routing. Use
-          * constructAbsoluteUrl instead, which also works for hash-based URLs.
           *
           * @param {String} targetOrPlace
           *    the target or place id to construct the url for
@@ -7621,13 +7579,10 @@ define( 'laxar/lib/runtime/flow',[
           * @return {string}
           *    the generated anchor
           *
-          * @deprecated
-          *    see description for details
-          *
           * @memberOf axFlowService
           */
          constructAnchor: function( targetOrPlace, optionalParameters ) {
-            return '#' + constructUrl( targetOrPlace, optionalParameters );
+            return '#' + flowService.constructPath( targetOrPlace, optionalParameters );
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7648,15 +7603,8 @@ define( 'laxar/lib/runtime/flow',[
           * @memberOf axFlowService
           */
          constructAbsoluteUrl: function( targetOrPlace, optionalParameters ) {
-            if( html5Mode_ && html5Mode_.enabled !== false ) {
-               var origin = $location.absUrl().replace( $location.url(), '' );
-               return origin + $browser.baseHref().replace( /\/$/, '' ) +
-                   constructUrl( targetOrPlace, optionalParameters );
-            }
-            else {
-               var absUrl = $location.absUrl().split( '#' )[0];
-               return absUrl + flowService.constructAnchor( targetOrPlace, optionalParameters );
-            }
+            var absUrl = $location.absUrl().split( '#' )[0];
+            return absUrl + flowService.constructAnchor( targetOrPlace, optionalParameters );
          },
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7664,14 +7612,8 @@ define( 'laxar/lib/runtime/flow',[
          /**
           * Returns a copy of the currently active place.
           *
-          * Deprecation Notice: will be removed in LaxarJS v2 without replacement. Subscribe to `didNavigate`
-          * for the relevant information.
-          *
           * @return {Object}
           *    the currently active place
-          *
-          * @deprecated
-          *    see description for details
           *
           * @memberOf axFlowService
           */
@@ -7687,29 +7629,10 @@ define( 'laxar/lib/runtime/flow',[
 
    } ] );
 
-
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   /**
-    * Encode a value for use as a path segment in routing.
-    *
-    * Usually, values are simply URL-encoded, but there are special cases:
-    *
-    *  - `null` and `undefined` are encoded as '_',
-    *  - other non-string values are (obviously) encoded into strings,
-    *  - slashes ('/') are double-encoded to '%252F', so that AngularJS ignores them during route matching.
-    *
-    * When decoded for use in didNavigate events, the original values will be restored, except for non-string
-    * input values, which will always be decoded into strings.
-    */
-   function encodeSegment( segment ) {
-      return segment == null ? '_' : encodeURIComponent( segment ).replace( /%2F/g, '%252F' );
-   }
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function collectParameters( parameters, place, searchOptions ) {
-      var result = object.options( searchOptions, place.queryParameters );
+   function decodeExpectedPlaceParameters( parameters, place ) {
+      var result = {};
       ng.forEach( place.expectedParameters, function( parameterName ) {
          result[ parameterName ] = decodePlaceParameter( parameters[ parameterName ] );
       } );
@@ -7719,49 +7642,21 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function placeNameForNavigationTarget( targetOrPlaceName, activePlace ) {
-      var placeName = object.path( activePlace, 'targets.' + targetOrPlaceName, routePrefix_ + targetOrPlaceName );
+      var placeName = object.path( activePlace, 'targets.' + targetOrPlaceName, targetOrPlaceName );
       if( placeName in places_ ) {
          return placeName;
       }
+
       log.error( 'Unknown target or place "[0]".', targetOrPlaceName );
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function constructUrl( targetOrPlace, optionalParameters ) {
-      var newParameters = object.options( optionalParameters, activeParameters_ || {} );
-      var placeName = placeNameForNavigationTarget( targetOrPlace, activePlace_ );
-      var place = places_[ placeName ];
-      var location = '/' + placeName;
-
-      place.expectedParameters.forEach( function( parameterName ) {
-         location += '/' + encodeSegment( newParameters[ parameterName ] );
-         delete newParameters[ parameterName ];
-      } );
-
-      if( queryEnabled_ ) {
-         var query = [];
-         ng.forEach( newParameters, function( value, parameterName ) {
-            var defaultValue = place.queryParameters[ parameterName ];
-            if( value == null || value === defaultValue ) {
-               return;
-            }
-            var encodedKey = encodeURIComponent( parameterName );
-            if( value === true ) {
-               query.push( encodedKey );
-               return;
-            }
-            if( value === false && !defaultValue ) {
-               return;
-            }
-            query.push( encodedKey + '=' + encodeURIComponent( value ) );
-         } );
-
-         if( query.length ) {
-            location += '?' + query.join( '&' );
-         }
+   function encodePlaceParameter( value ) {
+      if( value == null ) {
+         return '_';
       }
-      return location;
+      return typeof value === 'string' ? value.replace( /\//g, '%2F' ) : value;
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7789,7 +7684,7 @@ define( 'laxar/lib/runtime/flow',[
             } );
 
             $routeProvider_.otherwise( {
-               redirectTo: '/' + routePrefix_ + 'entry'
+               redirectTo: '/entry'
             } );
          } );
    }
@@ -7799,15 +7694,14 @@ define( 'laxar/lib/runtime/flow',[
    function assembleRoute( routeName, place ) {
       if( place.redirectTo ) {
          $routeProvider_.when( '/' + routeName, {
-            redirectTo: routePrefix_ + place.redirectTo
+            redirectTo: place.redirectTo
          } );
          return;
       }
 
       if( place.entryPoints ) {
-         var route = routeByEntryPoint( place.entryPoints );
          $routeProvider_.when( '/' + routeName, {
-            redirectTo: route != null ? ( routePrefix_ + route ) : route
+            redirectTo: routeByEntryPoint( place.entryPoints )
          } );
          return;
       }
@@ -7840,7 +7734,7 @@ define( 'laxar/lib/runtime/flow',[
          var parameters = entryPoint.parameters || {};
 
          object.forEach( targetPlace.expectedParameters, function( parameterName ) {
-            uri += '/' + encodeSegment( parameters[ parameterName ] );
+            uri += '/' + encodePlaceParameter( parameters[ parameterName ] );
          } );
 
          return uri;
@@ -7854,16 +7748,12 @@ define( 'laxar/lib/runtime/flow',[
    function processPlaceParameters( places ) {
       var processedRoutes = {};
 
-      object.forEach( places, function( place, placeSuffix ) {
-         var placeName = routePrefix_ + placeSuffix;
-
+      object.forEach( places, function( place, placeName ) {
          place.expectedParameters = [];
          place.id = placeName;
 
-         if( routePrefix_ ) {
-            ng.forEach( place.targets, function( targetPlaceSuffix, target ) {
-               place.targets[ target ] = routePrefix_ + place.targets[ target ];
-            } );
+         if( !place.targets ) {
+            place.targets = {};
          }
          if( !place.targets[ TARGET_SELF ] ) {
             place.targets[ TARGET_SELF ] = placeName.split( /\/:/ )[0];
@@ -7889,7 +7779,7 @@ define( 'laxar/lib/runtime/flow',[
       return fileResourceProvider_.provide( flowFile )
          .then( function( flow ) {
             validateFlowJson( flow );
-            return flow.places; // JSON.parse( JSON.stringify( flow.places ) );
+            return flow.places;
          }, function( err ) {
             throw new Error( 'Failed to load "' + flowFile + '". Cause: ' + err );
          } );
@@ -7898,7 +7788,7 @@ define( 'laxar/lib/runtime/flow',[
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function validateFlowJson( flowJson ) {
-      var result = jsonValidator.create( flowSchema, { useDefault: true } ).validate( flowJson );
+      var result = jsonValidator.create( flowSchema ).validate( flowJson );
 
       if( result.errors.length ) {
          result.errors.forEach( function( error ) {
@@ -8173,22 +8063,14 @@ define( 'laxar/lib/loaders/page_loader',[
                         .then( function() {
                            return load( self, compositionUrl )
                               .catch( function() {
-                                 var message =
-                                    'Composition "' + compositionName + '" could not be found' +
-                                    ' at location "' + compositionUrl + '"';
-                                 throwError( { name: page.name }, message );
+                                 throwError( { name: page.name }, 'Composition "' + compositionName + '" could not be found at location "' + compositionUrl + '"' );
                               } );
                         } )
                         .then( function( composition ) {
                            return prefixCompositionIds( composition, widgetSpec );
                         } )
                         .then( function( composition ) {
-                           return processCompositionExpressions( composition, widgetSpec, function( message ) {
-                              var messagePrefix =
-                                 'Error loading composition "' + compositionName + '"' +
-                                 ' (id: "' + widgetSpec.id + '"). ';
-                              throwError( { name: page.name }, messagePrefix + message );
-                           } );
+                           return processCompositionExpressions( composition, widgetSpec, throwError.bind( null, topPage ) );
                         } )
                         .then( function( composition ) {
                            var chain = compositionChain.concat( compositionName );
@@ -8274,15 +8156,13 @@ define( 'laxar/lib/loaders/page_loader',[
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function processCompositionExpressions( composition, compositionSpec, throwPageError ) {
+   function processCompositionExpressions( composition, widgetSpec, throwPageError ) {
       var expressionData = {};
 
       // feature definitions in compositions may contain generated topics for default resource names or action
       // topics. As such these are generated before instantiating the composition's features.
       composition.features = iterateOverExpressions( composition.features || {}, replaceExpression );
-      expressionData.features = featuresProvider.featuresForWidget(
-         composition, compositionSpec, throwPageError
-      );
+      expressionData.features = featuresProvider.featuresForWidget( composition, widgetSpec, throwPageError );
 
       if( typeof composition.mergedFeatures === 'object' ) {
          var mergedFeatures = iterateOverExpressions( composition.mergedFeatures, replaceExpression );
@@ -8306,7 +8186,7 @@ define( 'laxar/lib/loaders/page_loader',[
          var expression = matches[2];
          var result;
          if( expression.indexOf( COMPOSITION_TOPIC_PREFIX ) === 0 ) {
-            result = topicFromId( compositionSpec.id ) +
+            result = topicFromId( widgetSpec.id ) +
                SUBTOPIC_SEPARATOR + expression.substr( COMPOSITION_TOPIC_PREFIX.length );
          }
          else {
@@ -9863,102 +9743,6 @@ define( 'laxar/lib/runtime/runtime_dependencies',[
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
-define( 'laxar/lib/tooling/external_api',[
-   'angular',
-   './pages',
-   '../logging/log',
-   '../utilities/object',
-   '../utilities/configuration'
-],
-function( ng, pages, log, object, configuration ) {
-   'use strict';
-
-   /**
-    * If the documentElement has the attribute 'data-laxar-developer-tools-extension' or
-    * the property 'laxarDeveloperToolsExtensionLoaded' of the window is true or
-    * the tooling is enabled by configuration in the laxar application then
-    * laxar is providing the API by creating the object `window.laxarDeveloperToolsApi`.
-    * The attribute 'data-laxar-developer-tools-extension' is set by the web extension and
-    * the property 'laxarDeveloperToolsExtensionLoaded' is set by the firefox extension.
-    *
-    * Creation of the tooling hooks can be prevented by explicitly setting tooling.enabled
-    * to `false`.
-    */
-   function create( eventBus ) {
-      var toolingEnabled = configuration.get( 'tooling.enabled', null );
-      if( toolingEnabled === false ) {
-         // tooling disabled explicitly
-         return;
-      }
-
-      var extensionLoaded = window.laxarDeveloperToolsExtensionLoaded ||
-         document.documentElement.hasAttribute( 'data-laxar-developer-tools-extension' );
-      if( !( toolingEnabled || extensionLoaded ) ) {
-         // tooling not enabled explicitly, and no devtools loaded
-         return;
-      }
-
-      pages.addListener( onPageChange );
-      var bufferSize = configuration.get( 'tooling.bufferSize', 2500 );
-
-      var developerHooks = window.laxarDeveloperToolsApi = ( window.laxarDeveloperToolsApi || {} );
-      developerHooks.buffers = { events: [], log: [] } ;
-      developerHooks.eventCounter = Date.now();
-      developerHooks.logCounter = Date.now();
-      developerHooks.pageInfo = pages.current();
-      developerHooks.pageInfoVersion =  1;
-      developerHooks.gridSettings = configuration.get( 'tooling.grid', null );
-
-      log.addLogChannel( logChannel );
-      var cleanupInspector = eventBus.addInspector( inspector );
-
-      window.addEventListener( 'beforeunload', function() {
-         log.removeLogChannel( logChannel );
-         cleanupInspector();
-      } );
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      function logChannel( messageObject ) {
-         var index = developerHooks.logCounter++;
-         var jsonItem = JSON.stringify( messageObject );
-         pushIntoStore( 'log', { index: index, json: jsonItem } );
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      function inspector( item ) {
-         var index = developerHooks.eventCounter++;
-         var jsonItem = JSON.stringify( object.options( { time: Date.now() }, item ) );
-         pushIntoStore( 'events', { index: index, json: jsonItem } );
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      function onPageChange( pageInfo ) {
-         developerHooks.pageInfo = pageInfo;
-         ++developerHooks.pageInfoVersion;
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      function pushIntoStore( storeName, item ) {
-         var buffer = developerHooks.buffers[ storeName ];
-         while( buffer.length >= bufferSize ) {
-            buffer.shift();
-         }
-         buffer.push( item );
-      }
-   }
-
-   return ng.module( 'axToolingExternalApi', [] ).run( [ 'axGlobalEventBus', create ] );
-} );
-
-/**
- * Copyright 2016 aixigo AG
- * Released under the MIT license.
- * http://laxarjs.org/license
- */
 define( 'laxar/laxar',[
    'angular',
    './lib/logging/log',
@@ -9979,8 +9763,7 @@ define( 'laxar/laxar',[
    './lib/runtime/controls_service',
    './lib/runtime/theme_manager',
    './lib/widget_adapters/adapters',
-   './lib/tooling/pages',
-   './lib/tooling/external_api'
+   './lib/tooling/pages'
 ], function(
    ng,
    log,
@@ -10001,8 +9784,7 @@ define( 'laxar/laxar',[
    controlsService,
    themeManager,
    adapters,
-   pageToolingApi,
-   externalApi
+   pageToolingApi
 ) {
    'use strict';
 
@@ -10033,7 +9815,7 @@ define( 'laxar/laxar',[
       if( optionalWidgetAdapters && Array.isArray( optionalWidgetAdapters ) ) {
          adapters.addAdapters( optionalWidgetAdapters );
       }
-      var dependencies = [ runtime.module.name, runtimeDependencies.name, externalApi.name ];
+      var dependencies = [ runtime.module.name, runtimeDependencies.name ];
 
       Object.keys( widgetModules ).forEach( function( technology ) {
          var adapter = adapters.getFor( technology );
