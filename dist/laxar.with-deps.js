@@ -6007,8 +6007,9 @@ define( 'laxar/lib/runtime/runtime',[
  * http://laxarjs.org/license
  */
 define( 'laxar/lib/loaders/layout_loader',[
-   '../utilities/path'
-], function( path ) {
+   '../utilities/path',
+   '../logging/log'
+], function( path, log ) {
    'use strict';
 
    function create( layoutsRoot, themesRoot, cssLoader, themeManager, fileResourceProvider, cache ) {
@@ -6019,16 +6020,17 @@ define( 'laxar/lib/loaders/layout_loader',[
                   if( layoutInfo.css ) {
                      cssLoader.load( layoutInfo.css );
                   }
-                  if( layoutInfo.html ) {
-                     return fileResourceProvider.provide( layoutInfo.html ).then( function( htmlContent ) {
-                        layoutInfo.htmlContent = htmlContent;
-                        if( cache ) {
-                           cache.put( layoutInfo.html, htmlContent );
-                        }
-                        return layoutInfo;
-                     } );
+                  if( !layoutInfo.html ) {
+                     log.warn( 'LaxarJS: layout not found: ' + layout );
+                     return layoutInfo;
                   }
-                  return layoutInfo;
+                  return fileResourceProvider.provide( layoutInfo.html ).then( function( htmlContent ) {
+                     layoutInfo.htmlContent = htmlContent;
+                     if( cache ) {
+                        cache.put( layoutInfo.html, htmlContent );
+                     }
+                     return layoutInfo;
+                  } );
                }
             );
          }
